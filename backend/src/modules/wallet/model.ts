@@ -160,6 +160,46 @@ export const walletBehaviorInsightSchema = z.object({
   reflectionQuestions: z.array(z.string())
 });
 
+export const tokenBehaviorInsightSchema = z.object({
+  marketBrief: z.string(),
+  technicalPatterns: z.array(
+    z.object({
+      label: z.string(),
+      significance: z.string(),
+      confidence: z.number().min(0).max(1)
+    })
+  ),
+  newsSummary: z.array(
+    z.object({
+      title: z.string(),
+      summary: z.string(),
+      category: z.string().optional(),
+      source: z.string().optional(),
+      url: z.string().optional(),
+      date: z.string().optional()
+    })
+  ),
+  sentiment: z.object({
+    overall: z.enum(["positive", "neutral", "negative", "mixed", "unknown"]),
+    sources: z.array(
+      z.object({
+        source: z.string(),
+        signal: z.enum(["positive", "neutral", "negative", "unknown"]),
+        detail: z.string(),
+        score: z.number().min(-1).max(1)
+      })
+    )
+  }),
+  behavioralInsights: z.object({
+    emotionalSignals: z.array(walletBehaviorDetailSchema),
+    nudges: z.array(z.string()),
+    winningPatterns: z.array(z.string()),
+    losingPatterns: z.array(z.string()),
+    reflectionPrompts: z.array(z.string()),
+    habitCelebrations: z.array(z.string())
+  })
+});
+
 /**
  * TypeScript types inferred from Zod schemas
  */
@@ -173,6 +213,7 @@ export type TokenBalance = z.infer<typeof tokenBalanceSchema>;
 export type WalletInfo = z.infer<typeof walletInfoSchema>;
 export type WalletBehaviorDetail = z.infer<typeof walletBehaviorDetailSchema>;
 export type WalletBehaviorInsight = z.infer<typeof walletBehaviorInsightSchema>;
+export type TokenBehaviorInsight = z.infer<typeof tokenBehaviorInsightSchema>;
 
 /**
  * Etherscan API response schemas for validation

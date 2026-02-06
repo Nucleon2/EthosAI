@@ -107,3 +107,101 @@ curl http://localhost:3000/api/address/0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb
   }
 }
 ```
+
+### 2. Get Token-Specific Market + Behavioral Analysis
+
+**Endpoint:** `GET /api/address/:walletAddress/token/:tokenAddress`
+
+Retrieves token-specific wallet behavior plus token market analysis using CoinGecko:
+- Token market snapshot (price, volume, market cap)
+- Technical pattern descriptions in plain language
+- News and events (CoinGecko status updates)
+- Sentiment proxy from CoinGecko sources
+- Personalized behavioral insights for this token
+
+**Parameters:**
+- `walletAddress` (path, required): Ethereum address (0x...)
+- `tokenAddress` (path, required): ERC20 contract address (0x...)
+- `limit` (query, optional): Max token transfers to analyze (default: 100, max: 10000)
+- `days` (query, optional): Market chart window (default: 30, max: 365)
+
+**Example:**
+```bash
+curl "http://localhost:3000/api/address/0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb/token/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48?limit=200&days=30"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "tokenAnalysis": {
+    "marketBrief": "...",
+    "technicalPatterns": [
+      {
+        "label": "Short-term uptrend",
+        "significance": "...",
+        "confidence": 0.68
+      }
+    ],
+    "newsSummary": [
+      {
+        "title": "Project update",
+        "summary": "...",
+        "category": "update",
+        "source": "coingecko",
+        "url": "...",
+        "date": "..."
+      }
+    ],
+    "sentiment": {
+      "overall": "neutral",
+      "sources": [
+        {
+          "source": "coingecko-sentiment",
+          "signal": "neutral",
+          "detail": "Community votes up 52% / down 48%",
+          "score": 0.04
+        }
+      ]
+    },
+    "behavioralInsights": {
+      "emotionalSignals": [],
+      "nudges": [],
+      "winningPatterns": [],
+      "losingPatterns": [],
+      "reflectionPrompts": [],
+      "habitCelebrations": []
+    }
+  },
+  "marketSnapshot": {
+    "token": {
+      "id": "usd-coin",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "symbol": "usdc",
+      "name": "USD Coin"
+    },
+    "marketData": {
+      "currentPriceUsd": 1.0,
+      "priceChange24h": 0.01,
+      "marketCapUsd": 25000000000,
+      "volume24hUsd": 5500000000,
+      "lastUpdated": "..."
+    },
+    "technicalPatterns": [],
+    "news": [],
+    "sentiment": {
+      "overall": "neutral",
+      "sources": []
+    }
+  },
+  "meta": {
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "tokenAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "transactionLimit": 200,
+    "marketDays": 30,
+    "retrievedAt": "2026-02-06T...",
+    "analysisModel": "deepseek-chat",
+    "analysisError": "Behavior analysis unavailable (rate limit)"
+  }
+}
+```
