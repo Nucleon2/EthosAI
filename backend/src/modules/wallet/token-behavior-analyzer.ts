@@ -59,6 +59,7 @@ Compliance reminders:
 Behavioral insight expectations:
 - behavioralInsights should express conclusions, not generic advice.
 - Each item should reference the evidence from the wallet snapshot.
+- Use transfer size metrics (average, median, large threshold/count) to support behavioral conclusions about transfer magnitude.
 - If you cannot connect behavior to the market context, state "insufficient data" and keep the list minimal.
 - Use behavioralInsights.dataGaps to explicitly list missing evidence.
 - When making a cautious inference, mention the proxy evidence and mark it as tentative.`;
@@ -448,6 +449,7 @@ function buildUserPrompt(
     "Combine the wallet behavior snapshot with the token market context.",
     "Return conservative insights with clear evidence and uncertainty.",
     "Use transfer size and price timing context to confirm behavior-market alignment.",
+    "Call out average, median, and large transfer thresholds when describing magnitude.",
     "If timing data is missing, list it under dataGaps and stay conservative.",
     "Wallet token activity summary:",
     JSON.stringify(activitySummary),
