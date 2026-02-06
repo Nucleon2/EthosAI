@@ -111,7 +111,13 @@ export const tokenMarketSnapshotSchema = z.object({
   marketData: tokenMarketDataSchema,
   technicalPatterns: z.array(technicalPatternSchema),
   news: z.array(tokenNewsEventSchema),
-  sentiment: tokenSentimentSchema
+  sentiment: tokenSentimentSchema,
+  priceSeries: z.array(
+    z.object({
+      timestampMs: z.number(),
+      priceUsd: z.number()
+    })
+  )
 });
 
 export type CoingeckoCoin = z.infer<typeof coingeckoCoinSchema>;
