@@ -1,6 +1,6 @@
-import type { TokenBehaviorInsight, WalletInfo } from "./model";
-import type { TokenMarketSnapshot } from "../market/model";
-import { tokenBehaviorInsightSchema } from "./model";
+import type { TokenBehaviorInsight, WalletInfo } from "./types";
+import type { TokenMarketSnapshot } from "../market/types";
+import { tokenBehaviorInsightSchema } from "./schemas";
 
 const DEFAULT_DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
 const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";

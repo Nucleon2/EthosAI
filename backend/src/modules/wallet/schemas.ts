@@ -202,21 +202,6 @@ export const tokenBehaviorInsightSchema = z.object({
 });
 
 /**
- * TypeScript types inferred from Zod schemas
- */
-export type EthereumAddress = z.infer<typeof ethereumAddressSchema>;
-export type Transaction = z.infer<typeof transactionSchema>;
-export type InternalTransaction = z.infer<typeof internalTransactionSchema>;
-export type ERC20Transfer = z.infer<typeof erc20TransferSchema>;
-export type ERC721Transfer = z.infer<typeof erc721TransferSchema>;
-export type Balance = z.infer<typeof balanceSchema>;
-export type TokenBalance = z.infer<typeof tokenBalanceSchema>;
-export type WalletInfo = z.infer<typeof walletInfoSchema>;
-export type WalletBehaviorDetail = z.infer<typeof walletBehaviorDetailSchema>;
-export type WalletBehaviorInsight = z.infer<typeof walletBehaviorInsightSchema>;
-export type TokenBehaviorInsight = z.infer<typeof tokenBehaviorInsightSchema>;
-
-/**
  * Etherscan API response schemas for validation
  */
 export const etherscanResponseSchema = z.object({
@@ -224,5 +209,3 @@ export const etherscanResponseSchema = z.object({
   message: z.string(),
   result: z.union([z.string(), z.array(z.any())])
 });
-
-export type EtherscanResponse = z.infer<typeof etherscanResponseSchema>;

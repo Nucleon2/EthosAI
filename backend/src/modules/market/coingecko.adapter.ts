@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { CoingeckoCoin, CoingeckoMarketChart } from "./model";
-import { coingeckoCoinSchema, coingeckoMarketChartSchema } from "./model";
+import type { CoingeckoCoin, CoingeckoMarketChart } from "./types";
+import { coingeckoCoinSchema, coingeckoMarketChartSchema } from "./schemas";
 
 const COINGECKO_API_KEY = Bun.env.COINGECKO_API_KEY;
 const COINGECKO_BASE_URL = Bun.env.COINGECKO_BASE_URL;

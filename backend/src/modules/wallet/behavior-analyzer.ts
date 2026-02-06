@@ -1,5 +1,5 @@
-import type { WalletBehaviorInsight, WalletInfo } from "./model";
-import { walletBehaviorInsightSchema } from "./model";
+import type { WalletBehaviorInsight, WalletInfo } from "./types";
+import { walletBehaviorInsightSchema } from "./schemas";
 
 const DEFAULT_DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
 const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";

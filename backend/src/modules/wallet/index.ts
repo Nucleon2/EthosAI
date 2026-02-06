@@ -1,10 +1,10 @@
 import { Elysia, t } from "elysia";
-import { WalletService } from "./service";
+import { walletService } from "./service";
 import type { WalletServiceContract } from "./service";
 import { analyzeWalletBehavior } from "./behavior-analyzer";
 import { analyzeTokenBehavior } from "./token-behavior-analyzer";
 import { formatEther } from "ethers";
-import { buildTokenMarketSnapshot } from "../market/service";
+import { marketService } from "../market/service";
 
 /**
  * Wallet routes for Ethereum address analysis
@@ -13,9 +13,9 @@ import { buildTokenMarketSnapshot } from "../market/service";
  * transaction history, and token transfers.
  */
 export function createWalletRoutes(
-    walletService?: WalletServiceContract
+    providedService?: WalletServiceContract
 ) {
-    const service = walletService || WalletService;
+    const service = providedService || walletService;
 
     return new Elysia()
         /**
@@ -130,7 +130,7 @@ export function createWalletRoutes(
 
                     const [walletInfo, marketSnapshot] = await Promise.all([
                         service.getWalletTokenActivity(walletAddress, tokenAddress, limit),
-                        buildTokenMarketSnapshot(tokenAddress, days)
+                        marketService.buildTokenMarketSnapshot(tokenAddress, days)
                     ]);
 
                     let tokenBehavior = null;

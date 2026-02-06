@@ -7,14 +7,14 @@ import type {
   ERC721Transfer,
   EtherscanResponse,
   WalletInfo
-} from "../model";
+} from "../types";
 import {
   transactionSchema,
   internalTransactionSchema,
   erc20TransferSchema,
   erc721TransferSchema,
   etherscanResponseSchema
-} from "../model";
+} from "../schemas";
 
 /**
  * Etherscan API adapter

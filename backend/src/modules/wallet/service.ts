@@ -1,5 +1,5 @@
-import type { EthereumAddress, WalletInfo } from "./model";
-import { ethereumAddressSchema, walletInfoSchema } from "./model";
+import type { EthereumAddress, WalletInfo } from "./types";
+import { ethereumAddressSchema, walletInfoSchema } from "./schemas";
 import { createEtherscanAdapter } from "./adapters/etherscan.adapter";
 
 const adapter = createEtherscanAdapter();
@@ -32,7 +32,7 @@ export type WalletServiceContract = {
  * Orchestrates wallet data retrieval and normalization.
  * Coordinates between adapters and enforces business logic.
  */
-export const WalletService: WalletServiceContract = {
+export const walletService: WalletServiceContract = {
   validateAddress(address: string): EthereumAddress {
     try {
       return ethereumAddressSchema.parse(address);
@@ -45,7 +45,7 @@ export const WalletService: WalletServiceContract = {
     address: string,
     transactionLimit: number = 100
   ): Promise<WalletInfo> {
-    const validatedAddress = WalletService.validateAddress(address);
+    const validatedAddress = walletService.validateAddress(address);
 
     const walletData = await adapter.getCompleteWalletInfo(
       validatedAddress,
@@ -60,7 +60,7 @@ export const WalletService: WalletServiceContract = {
     tokenAddress: string,
     transactionLimit: number = 100
   ): Promise<WalletInfo> {
-    const validatedAddress = WalletService.validateAddress(address);
+    const validatedAddress = walletService.validateAddress(address);
     const validatedToken = ethereumAddressSchema.parse(tokenAddress);
 
     const walletData = await adapter.getCompleteWalletInfo(

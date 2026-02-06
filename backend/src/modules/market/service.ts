@@ -5,12 +5,14 @@ import type {
   TokenSentiment,
   TokenSentimentSource,
   CoingeckoCoin
-} from "./model";
+} from "./types";
 import {
   getCoinById,
   getCoinMarketChart,
   getCoinIdByContract
 } from "./coingecko.adapter";
+
+// Private helper functions (file-scoped, not exported)
 
 function calculateReturns(series: Array<[number, number]>): number[] {
   const returns: number[] = [];
@@ -34,7 +36,9 @@ function average(values: number[]): number {
 function standardDeviation(values: number[]): number {
   if (values.length === 0) return 0;
   const avg = average(values);
-  const variance = average(values.map((value) => Math.pow(value - avg, 2)));
+  const variance = average(
+    values.map((value) => Math.pow(value - avg, 2))
+  );
   return Math.sqrt(variance);
 }
 
@@ -76,7 +80,10 @@ function analyzeTechnicalPatterns(
       label: "Short-term downtrend",
       significance:
         "Recent prices have been drifting lower, which can signal weakening demand.",
-      confidence: Math.min(0.85, 0.5 + Math.max(Math.abs(avgReturn), Math.abs(trendChange)) * 5)
+      confidence: Math.min(
+        0.85,
+        0.5 + Math.max(Math.abs(avgReturn), Math.abs(trendChange)) * 5
+      )
     });
   } else {
     patterns.push({
@@ -200,7 +207,11 @@ function buildSentimentFromCoinData(coin: CoingeckoCoin): TokenSentiment {
   if (developerScore !== null) {
     sources.push({
       source: "developer-activity",
-      signal: developerScore > 60 ? "positive" : developerScore < 30 ? "negative" : "neutral",
+      signal: developerScore > 60
+        ? "positive"
+        : developerScore < 30
+          ? "negative"
+          : "neutral",
       detail: "Developer activity hints at project momentum.",
       score: Math.max(-1, Math.min(1, (developerScore - 50) / 50))
     });
@@ -240,45 +251,49 @@ function buildSentimentFromCoinData(coin: CoingeckoCoin): TokenSentiment {
   return { overall, sources };
 }
 
-export async function buildTokenMarketSnapshot(
-  tokenAddress: string,
-  days: number = 30
-): Promise<TokenMarketSnapshot> {
-  const coinId = await getCoinIdByContract(tokenAddress);
+// Public API (exported)
 
-  const [coin, chart] = await Promise.all([
-    getCoinById(coinId),
-    getCoinMarketChart(coinId, days)
-  ]);
+export const marketService = {
+  async buildTokenMarketSnapshot(
+    tokenAddress: string,
+    days: number = 30
+  ): Promise<TokenMarketSnapshot> {
+    const coinId = await getCoinIdByContract(tokenAddress);
 
-  const prices = chart.prices;
-  const technicalPatterns = analyzeTechnicalPatterns(
-    prices,
-    coin.market_data?.price_change_percentage_24h ?? null
-  );
+    const [coin, chart] = await Promise.all([
+      getCoinById(coinId),
+      getCoinMarketChart(coinId, days)
+    ]);
 
-  const marketData = {
-    currentPriceUsd: coin.market_data?.current_price?.usd ?? null,
-    priceChange24h: coin.market_data?.price_change_percentage_24h ?? null,
-    marketCapUsd: coin.market_data?.market_cap?.usd ?? null,
-    volume24hUsd: coin.market_data?.total_volume?.usd ?? null,
-    lastUpdated: coin.market_data?.last_updated ?? null
-  };
+    const prices = chart.prices;
+    const technicalPatterns = analyzeTechnicalPatterns(
+      prices,
+      coin.market_data?.price_change_percentage_24h ?? null
+    );
 
-  return {
-    token: {
-      id: coin.id,
-      address: tokenAddress,
-      symbol: coin.symbol,
-      name: coin.name
-    },
-    marketData,
-    technicalPatterns,
-    news: buildNewsFromStatusUpdates(coin),
-    sentiment: buildSentimentFromCoinData(coin),
-    priceSeries: prices.map((entry) => ({
-      timestampMs: entry[0],
-      priceUsd: entry[1]
-    }))
-  };
-}
+    const marketData = {
+      currentPriceUsd: coin.market_data?.current_price?.usd ?? null,
+      priceChange24h: coin.market_data?.price_change_percentage_24h ?? null,
+      marketCapUsd: coin.market_data?.market_cap?.usd ?? null,
+      volume24hUsd: coin.market_data?.total_volume?.usd ?? null,
+      lastUpdated: coin.market_data?.last_updated ?? null
+    };
+
+    return {
+      token: {
+        id: coin.id,
+        address: tokenAddress,
+        symbol: coin.symbol,
+        name: coin.name
+      },
+      marketData,
+      technicalPatterns,
+      news: buildNewsFromStatusUpdates(coin),
+      sentiment: buildSentimentFromCoinData(coin),
+      priceSeries: prices.map((entry) => ({
+        timestampMs: entry[0],
+        priceUsd: entry[1]
+      }))
+    };
+  }
+};
