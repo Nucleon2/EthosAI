@@ -1,0 +1,19 @@
+{
+  "name": "ethereum-wallet-market-analysis",
+  "version": "1.0.0",
+  "description": "Agentic Market & Behavior Intelligence Framework for Ethereum",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "bun test",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "elysia": "^1.1.31"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.2"
+  }
+}
