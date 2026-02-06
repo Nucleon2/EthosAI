@@ -3,7 +3,8 @@ import type {
   TechnicalPattern,
   TokenNewsEvent,
   TokenSentiment,
-  TokenSentimentSource
+  TokenSentimentSource,
+  CoingeckoCoin
 } from "./model";
 import {
   getCoinById,
@@ -143,7 +144,7 @@ function analyzeTechnicalPatterns(
   return patterns.slice(0, 5);
 }
 
-function buildNewsFromStatusUpdates(coin: { status_updates?: Array<any> }): TokenNewsEvent[] {
+function buildNewsFromStatusUpdates(coin: CoingeckoCoin): TokenNewsEvent[] {
   if (!coin.status_updates || coin.status_updates.length === 0) {
     return [
       {
@@ -166,15 +167,7 @@ function buildNewsFromStatusUpdates(coin: { status_updates?: Array<any> }): Toke
   }));
 }
 
-function buildSentimentFromCoinData(coin: {
-  market_data?: {
-    sentiment_votes_up_percentage?: number | null;
-    sentiment_votes_down_percentage?: number | null;
-  };
-  community_data?: { twitter_followers?: number | null; reddit_subscribers?: number | null };
-  developer_data?: { developer_score?: number | null; commit_count_4_weeks?: number | null };
-  public_interest_score?: number | null;
-}): TokenSentiment {
+function buildSentimentFromCoinData(coin: CoingeckoCoin): TokenSentiment {
   const sources: TokenSentimentSource[] = [];
 
   const up = coin.market_data?.sentiment_votes_up_percentage ?? null;
