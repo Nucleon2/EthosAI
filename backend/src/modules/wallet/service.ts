@@ -19,6 +19,11 @@ export type WalletServiceContract = {
     address: string,
     transactionLimit?: number
   ): Promise<WalletInfo>;
+  getWalletTokenActivity(
+    address: string,
+    tokenAddress: string,
+    transactionLimit?: number
+  ): Promise<WalletInfo>;
 };
 
 /**
@@ -45,6 +50,23 @@ export const WalletService: WalletServiceContract = {
     const walletData = await adapter.getCompleteWalletInfo(
       validatedAddress,
       transactionLimit
+    );
+
+    return walletInfoSchema.parse(walletData);
+  },
+
+  async getWalletTokenActivity(
+    address: string,
+    tokenAddress: string,
+    transactionLimit: number = 100
+  ): Promise<WalletInfo> {
+    const validatedAddress = WalletService.validateAddress(address);
+    const validatedToken = ethereumAddressSchema.parse(tokenAddress);
+
+    const walletData = await adapter.getCompleteWalletInfo(
+      validatedAddress,
+      transactionLimit,
+      validatedToken
     );
 
     return walletInfoSchema.parse(walletData);

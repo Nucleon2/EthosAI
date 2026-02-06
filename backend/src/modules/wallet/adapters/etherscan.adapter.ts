@@ -287,7 +287,8 @@ export class EtherscanAdapter {
    */
   async getCompleteWalletInfo(
     address: EthereumAddress,
-    transactionLimit: number = 100
+    transactionLimit: number = 100,
+    tokenFilter?: string
   ): Promise<WalletInfo> {
     // Fetch all data in parallel for efficiency
     const [
@@ -300,7 +301,7 @@ export class EtherscanAdapter {
       this.getBalance(address),
       this.getNormalTransactions(address, 0, 99999999, 1, transactionLimit),
       this.getInternalTransactions(address, 0, 99999999, 1, transactionLimit),
-      this.getERC20Transfers(address, undefined, 0, 99999999, 1, transactionLimit),
+      this.getERC20Transfers(address, tokenFilter, 0, 99999999, 1, transactionLimit),
       this.getERC721Transfers(address, undefined, 0, 99999999, 1, transactionLimit)
     ]);
 
