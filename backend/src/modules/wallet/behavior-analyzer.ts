@@ -42,6 +42,70 @@ type DeepseekChatCompletion = {
   };
 };
 
+type TransferSizeMetricsSummary = {
+  averageTransferSize: number | null;
+  medianTransferSize: number | null;
+  largeTransferThreshold: number | null;
+  largeTransferCount: number | null;
+  transferSizeUnits: "base" | "wei";
+};
+
+function computeTransferSizeMetrics(
+  values: string[],
+  transferSizeUnits: TransferSizeMetricsSummary["transferSizeUnits"]
+): TransferSizeMetricsSummary {
+  const parsedValues: bigint[] = [];
+  const totalValue = values.reduce((sum, value) => {
+    try {
+      const parsed = BigInt(value);
+      parsedValues.push(parsed);
+      return sum + parsed;
+    } catch {
+      return sum;
+    }
+  }, 0n as bigint);
+
+  if (parsedValues.length === 0) {
+    return {
+      averageTransferSize: null,
+      medianTransferSize: null,
+      largeTransferThreshold: null,
+      largeTransferCount: null,
+      transferSizeUnits
+    };
+  }
+
+  const avgBigInt = totalValue / BigInt(parsedValues.length);
+  const averageTransferSize =
+    avgBigInt <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(avgBigInt) : null;
+
+  const sorted = [...parsedValues].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const mid = Math.floor(sorted.length / 2);
+  const medianBigInt =
+    sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2n : sorted[mid];
+  const medianTransferSize =
+    medianBigInt <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(medianBigInt) : null;
+
+  const thresholdIndex = Math.floor(sorted.length * 0.8);
+  const threshold = sorted[
+    Math.min(Math.max(thresholdIndex, 0), sorted.length - 1)
+  ];
+  let largeTransferThreshold: number | null = null;
+  let largeTransferCount: number | null = null;
+  if (threshold <= BigInt(Number.MAX_SAFE_INTEGER)) {
+    largeTransferThreshold = Number(threshold);
+    largeTransferCount = sorted.filter((value) => value >= threshold).length;
+  }
+
+  return {
+    averageTransferSize,
+    medianTransferSize,
+    largeTransferThreshold,
+    largeTransferCount,
+    transferSizeUnits
+  };
+}
+
 function summarizeWallet(info: WalletInfo) {
   const totalTransactions = info.transactions.length;
   const totalInternal = info.internalTransactions.length;
@@ -87,6 +151,21 @@ function summarizeWallet(info: WalletInfo) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
+  const ethTransferValues = [
+    ...info.transactions.map((tx) => tx.value),
+    ...info.internalTransactions.map((tx) => tx.value)
+  ];
+  const erc20TransferValues = info.erc20Transfers.map((tx) => tx.value);
+
+  const ethTransferSizeMetrics = computeTransferSizeMetrics(
+    ethTransferValues,
+    "wei"
+  );
+  const erc20TransferSizeMetrics = computeTransferSizeMetrics(
+    erc20TransferValues,
+    "base"
+  );
+
   return {
     address: info.address,
     balanceWei: info.balance,
@@ -99,6 +178,12 @@ function summarizeWallet(info: WalletInfo) {
     uniqueCounterparties: uniqueCounterparties.size,
     topTokens,
     topNfts,
+    transferSizeMetrics: {
+      ethTransfers: ethTransferSizeMetrics,
+      erc20Transfers: erc20TransferSizeMetrics,
+      note:
+        "ETH transfers are in wei; ERC20 transfers are in token base units and are not normalized."
+    },
     firstActivity: firstActive,
     lastActivity: lastActive
   };
@@ -108,6 +193,7 @@ function buildUserPrompt(info: WalletInfo): string {
   const summary = summarizeWallet(info);
   return [
     "Analyze the following wallet snapshot and infer behavioral patterns.",
+    "Use transfer size metrics (ETH in wei, ERC20 in base units) to support magnitude claims.",
     "JSON snapshot:",
     JSON.stringify(summary)
   ].join("\n");

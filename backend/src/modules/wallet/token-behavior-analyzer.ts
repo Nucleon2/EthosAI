@@ -27,6 +27,19 @@ interface TokenBehaviorInsight {
   technicalPatterns: { label: string; significance: string; confidence: number }[];
   newsSummary: { title: string; summary: string; category?: string; source?: string; url?: string; date?: string }[];
   sentiment: { overall: "positive" | "neutral" | "negative" | "mixed" | "unknown"; sources: { source: string; signal: "positive" | "neutral" | "negative" | "unknown"; detail: string; score: number }[] };
+  transferSizeMetrics: {
+    averageTransferSize: number | null;
+    medianTransferSize: number | null;
+    largeTransferThreshold: number | null;
+    largeTransferCount: number | null;
+    transferSizeUnits: "base";
+    averageAbsWindowMoveForLarge: number | null;
+    windowHours: number | null;
+    largeTransfersWithPriceData: number | null;
+    largeTransfersNearMove: number | null;
+    percentLargeTransfersNearMove: number | null;
+    dominantWindowDirectionForLarge: "up" | "down" | "mixed" | "flat" | "unknown";
+  };
   behavioralInsights: {
     emotionalSignals: { label: string; description: string; confidence: number }[];
     nudges: string[];
@@ -46,6 +59,7 @@ Compliance reminders:
 Behavioral insight expectations:
 - behavioralInsights should express conclusions, not generic advice.
 - Each item should reference the evidence from the wallet snapshot.
+- Use transfer size metrics (average, median, large threshold/count) to support behavioral conclusions about transfer magnitude.
 - If you cannot connect behavior to the market context, state "insufficient data" and keep the list minimal.
 - Use behavioralInsights.dataGaps to explicitly list missing evidence.
 - When making a cautious inference, mention the proxy evidence and mark it as tentative.`;
@@ -82,10 +96,28 @@ type TokenActivitySummary = {
     percentNearMove: number;
     averageAbsWindowMove: number | null;
     averageAbsWindowMoveForLarge: number | null;
+    largeTransfersWithPriceData: number;
+    largeTransfersNearMove: number;
+    percentLargeTransfersNearMove: number;
+    dominantWindowDirectionForLarge: "up" | "down" | "mixed" | "flat" | "unknown";
     dominantWindowDirection: "up" | "down" | "mixed" | "flat" | "unknown";
   } | null;
   dataGaps?: string[];
   uniqueCounterparties: number;
+};
+
+type TransferSizeMetrics = {
+  averageTransferSize: number | null;
+  medianTransferSize: number | null;
+  largeTransferThreshold: number | null;
+  largeTransferCount: number | null;
+  transferSizeUnits: "base";
+  averageAbsWindowMoveForLarge: number | null;
+  windowHours: number | null;
+  largeTransfersWithPriceData: number | null;
+  largeTransfersNearMove: number | null;
+  percentLargeTransfersNearMove: number | null;
+  dominantWindowDirectionForLarge: "up" | "down" | "mixed" | "flat" | "unknown";
 };
 
 type TransferPriceContext = {
@@ -194,6 +226,10 @@ function summarizeTokenActivity(
     let sumAbsWindowMove = 0;
     let sumAbsWindowMoveLarge = 0;
     let largeWithPriceData = 0;
+    let largeNearMove = 0;
+    let largeUpCount = 0;
+    let largeDownCount = 0;
+    let largeFlatCount = 0;
     let upCount = 0;
     let downCount = 0;
     let flatCount = 0;
@@ -231,6 +267,16 @@ function summarizeTokenActivity(
           if (parsed >= BigInt(largeTransferThreshold)) {
             sumAbsWindowMoveLarge += absMove;
             largeWithPriceData += 1;
+            if (absMove >= minWindowMovePercent) {
+              largeNearMove += 1;
+            }
+            if (context.direction === "up") {
+              largeUpCount += 1;
+            } else if (context.direction === "down") {
+              largeDownCount += 1;
+            } else if (context.direction === "flat") {
+              largeFlatCount += 1;
+            }
           }
         } catch {
           // Skip invalid value for large transfer stats.
@@ -253,11 +299,20 @@ function summarizeTokenActivity(
         largeWithPriceData > 0
           ? sumAbsWindowMoveLarge / largeWithPriceData
           : null;
+      const percentLargeTransfersNearMove =
+        largeWithPriceData > 0
+          ? (largeNearMove / largeWithPriceData) * 100
+          : 0;
 
       const dominantWindowDirection = resolveDominantDirection(
         upCount,
         downCount,
         flatCount
+      );
+      const dominantWindowDirectionForLarge = resolveDominantDirection(
+        largeUpCount,
+        largeDownCount,
+        largeFlatCount
       );
 
       priceTiming = {
@@ -267,6 +322,10 @@ function summarizeTokenActivity(
         percentNearMove,
         averageAbsWindowMove,
         averageAbsWindowMoveForLarge,
+        largeTransfersWithPriceData: largeWithPriceData,
+        largeTransfersNearMove: largeNearMove,
+        percentLargeTransfersNearMove,
+        dominantWindowDirectionForLarge,
         dominantWindowDirection
       };
     }
@@ -363,22 +422,43 @@ function buildUserPrompt(
   walletInfo: WalletInfo,
   tokenAddress: string,
   marketSnapshot: TokenMarketSnapshot
-): string {
+): { prompt: string; transferSizeMetrics: TransferSizeMetrics } {
   const activitySummary = summarizeTokenActivity(
     walletInfo,
     tokenAddress,
     marketSnapshot
   );
-  return [
+  const transferSizeMetrics: TransferSizeMetrics = {
+    averageTransferSize: activitySummary.averageTransferSize ?? null,
+    medianTransferSize: activitySummary.medianTransferSize ?? null,
+    largeTransferThreshold: activitySummary.largeTransferThreshold ?? null,
+    largeTransferCount: activitySummary.largeTransferCount ?? null,
+    transferSizeUnits: activitySummary.transferSizeUnits ?? "base",
+    averageAbsWindowMoveForLarge:
+      activitySummary.priceTiming?.averageAbsWindowMoveForLarge ?? null,
+    windowHours: activitySummary.priceTiming?.windowHours ?? null,
+    largeTransfersWithPriceData:
+      activitySummary.priceTiming?.largeTransfersWithPriceData ?? null,
+    largeTransfersNearMove: activitySummary.priceTiming?.largeTransfersNearMove ?? null,
+    percentLargeTransfersNearMove:
+      activitySummary.priceTiming?.percentLargeTransfersNearMove ?? null,
+    dominantWindowDirectionForLarge:
+      activitySummary.priceTiming?.dominantWindowDirectionForLarge ?? "unknown"
+  };
+  const prompt = [
     "Combine the wallet behavior snapshot with the token market context.",
     "Return conservative insights with clear evidence and uncertainty.",
     "Use transfer size and price timing context to confirm behavior-market alignment.",
+    "Call out average, median, and large transfer thresholds when describing magnitude.",
     "If timing data is missing, list it under dataGaps and stay conservative.",
     "Wallet token activity summary:",
     JSON.stringify(activitySummary),
+    "Transfer size metrics summary:",
+    JSON.stringify(transferSizeMetrics),
     "Token market snapshot:",
     JSON.stringify(marketSnapshot)
   ].join("\n");
+  return { prompt, transferSizeMetrics };
 }
 
 export async function analyzeTokenBehavior(
@@ -391,6 +471,11 @@ export async function analyzeTokenBehavior(
     throw new Error("Missing DEEPSEEK_API_KEY environment variable");
   }
 
+  const { prompt, transferSizeMetrics } = buildUserPrompt(
+    walletInfo,
+    tokenAddress,
+    marketSnapshot
+  );
   const response = await fetch(Bun.env.DEEPSEEK_API_URL || DEFAULT_DEEPSEEK_URL, {
     method: "POST",
     headers: {
@@ -403,7 +488,7 @@ export async function analyzeTokenBehavior(
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: buildUserPrompt(walletInfo, tokenAddress, marketSnapshot)
+          content: prompt
         }
       ],
       temperature: 0.2,
@@ -432,5 +517,10 @@ export async function analyzeTokenBehavior(
     );
   }
 
-  return tokenBehaviorInsightSchema.parse(parsed);
+  const parsedWithMetrics =
+    parsed && typeof parsed === "object"
+      ? { ...parsed, transferSizeMetrics }
+      : { transferSizeMetrics };
+
+  return tokenBehaviorInsightSchema.parse(parsedWithMetrics);
 }

@@ -152,7 +152,6 @@ export function createWalletRoutes(
                     return {
                         success: true,
                         tokenAnalysis: tokenBehavior,
-                        marketSnapshot,
                         meta: {
                             address: walletAddress,
                             tokenAddress,

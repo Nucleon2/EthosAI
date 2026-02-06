@@ -16,5 +16,5 @@ console.log(
 );
 console.log(`📍 Health check: http://localhost:${PORT}/api/ping`);
 console.log(`💰 Wallet API: http://localhost:${PORT}/api/address/:walletAddress`);
-console.log(`💰 token API: http://localhost:${PORT}/api/address/:walletAddress/token/:tokenAddress`);
+console.log(`🪙 Token API: http://localhost:${PORT}/api/address/:walletAddress/token/:tokenAddress`);
 console.log(`📖 See WALLET_API.md for complete API documentation`);

@@ -190,6 +190,25 @@ export const tokenBehaviorInsightSchema = z.object({
       })
     )
   }),
+  transferSizeMetrics: z.object({
+    averageTransferSize: z.number().nullable(),
+    medianTransferSize: z.number().nullable(),
+    largeTransferThreshold: z.number().nullable(),
+    largeTransferCount: z.number().nullable(),
+    transferSizeUnits: z.enum(["base"]),
+    averageAbsWindowMoveForLarge: z.number().nullable(),
+    windowHours: z.number().nullable(),
+    largeTransfersWithPriceData: z.number().nullable(),
+    largeTransfersNearMove: z.number().nullable(),
+    percentLargeTransfersNearMove: z.number().nullable(),
+    dominantWindowDirectionForLarge: z.enum([
+      "up",
+      "down",
+      "mixed",
+      "flat",
+      "unknown"
+    ])
+  }),
   behavioralInsights: z.object({
     emotionalSignals: z.array(walletBehaviorDetailSchema),
     nudges: z.array(z.string()),

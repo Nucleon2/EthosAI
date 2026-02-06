@@ -256,10 +256,10 @@ curl "http://localhost:3000/api/address/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA960
 The system provides a comprehensive Wallet API for retrieving Ethereum wallet data:
 
 **Endpoints:**
-- `GET /api/address/:walletAddress` - Complete wallet info (balance, transactions, tokens, NFTs)
+- `GET /api/address/:walletAddress` - Complete wallet info with AI-powered behavioral analysis
+- `GET /api/address/:walletAddress/token/:tokenAddress` - Token-specific behavior + market analysis with transfer size metrics and price timing
 - `GET /api/address/:walletAddress/balance` - ETH balance only
 - `GET /api/address/:walletAddress/transactions` - Normal transactions
-- `GET /api/address/:walletAddress/tokens` - ERC20 token transfers
 - `GET /api/address/:walletAddress/nfts` - ERC721 NFT transfers
 
 **Features:**
@@ -270,6 +270,8 @@ The system provides a comprehensive Wallet API for retrieving Ethereum wallet da
 - ✅ Comprehensive error handling
 - ✅ Standardized JSON responses
 - ✅ Built-in Deepseek-powered behavior insight alongside raw wallet data
+- ✅ Token-specific transfer size metrics (average, median, large transfer thresholds)
+- ✅ Price timing analysis (6-hour window correlation with significant moves)
 
 **📖 See [`backend/WALLET_API.md`](backend/WALLET_API.md) for complete API documentation**
 
