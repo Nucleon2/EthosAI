@@ -71,12 +71,32 @@ type TokenActivitySummary = {
   recentTransferAt: string | null;
   firstTransferAt: string | null;
   averageTransferSize?: number | null;
+  medianTransferSize?: number | null;
+  largeTransferThreshold?: number | null;
+  largeTransferCount?: number | null;
+  transferSizeUnits?: "base";
+  priceTiming?: {
+    windowHours: number;
+    transfersWithPriceData: number;
+    transfersNearMove: number;
+    percentNearMove: number;
+    averageAbsWindowMove: number | null;
+    averageAbsWindowMoveForLarge: number | null;
+    dominantWindowDirection: "up" | "down" | "mixed" | "flat" | "unknown";
+  } | null;
+  dataGaps?: string[];
   uniqueCounterparties: number;
+};
+
+type TransferPriceContext = {
+  windowChangePercent: number | null;
+  direction: "up" | "down" | "flat" | "unknown";
 };
 
 function summarizeTokenActivity(
   walletInfo: WalletInfo,
-  tokenAddress: string
+  tokenAddress: string,
+  marketSnapshot?: TokenMarketSnapshot
 ): TokenActivitySummary {
   const normalized = tokenAddress.toLowerCase();
   const tokenTransfers = walletInfo.erc20Transfers.filter(
@@ -109,11 +129,16 @@ function summarizeTokenActivity(
   );
 
   let averageTransferSize: number | null = null;
+  let medianTransferSize: number | null = null;
+  let largeTransferThreshold: number | null = null;
+  let largeTransferCount: number | null = null;
+  const parsedValues: bigint[] = [];
   if (tokenTransfers.length > 0) {
     const totalValue = tokenTransfers.reduce((sum, transfer) => {
       try {
         // ERC20Transfer.value is a decimal string in base units; use BigInt to avoid precision loss.
         const parsed = BigInt(transfer.value);
+        parsedValues.push(parsed);
         return sum + parsed;
       } catch {
         // If parsing fails for any transfer, skip it.
@@ -121,14 +146,132 @@ function summarizeTokenActivity(
       }
     }, 0n as bigint);
 
-    const avgBigInt = totalValue / BigInt(tokenTransfers.length);
+    if (parsedValues.length > 0) {
+      const avgBigInt = totalValue / BigInt(parsedValues.length);
 
-    // Only convert to number if within the safe integer range; otherwise, omit the value.
-    if (avgBigInt <= BigInt(Number.MAX_SAFE_INTEGER)) {
-      averageTransferSize = Number(avgBigInt);
-    } else {
-      averageTransferSize = null;
+      // Only convert to number if within the safe integer range; otherwise, omit the value.
+      if (avgBigInt <= BigInt(Number.MAX_SAFE_INTEGER)) {
+        averageTransferSize = Number(avgBigInt);
+      } else {
+        averageTransferSize = null;
+      }
+
+      const sorted = [...parsedValues].sort((a, b) =>
+        a < b ? -1 : a > b ? 1 : 0
+      );
+      const mid = Math.floor(sorted.length / 2);
+      const medianBigInt =
+        sorted.length % 2 === 0
+          ? (sorted[mid - 1] + sorted[mid]) / 2n
+          : sorted[mid];
+
+      if (medianBigInt <= BigInt(Number.MAX_SAFE_INTEGER)) {
+        medianTransferSize = Number(medianBigInt);
+      } else {
+        medianTransferSize = null;
+      }
+
+      const thresholdIndex = Math.floor(sorted.length * 0.8);
+      const threshold = sorted[
+        Math.min(Math.max(thresholdIndex, 0), sorted.length - 1)
+      ];
+      if (threshold <= BigInt(Number.MAX_SAFE_INTEGER)) {
+        largeTransferThreshold = Number(threshold);
+        largeTransferCount = sorted.filter((value) => value >= threshold).length;
+      }
     }
+  }
+
+  const dataGaps: string[] = [];
+  let priceTiming: TokenActivitySummary["priceTiming"] = null;
+  if (marketSnapshot && marketSnapshot.priceSeries.length > 1) {
+    const priceSeries = marketSnapshot.priceSeries;
+    const windowHours = 6;
+    const windowMs = windowHours * 60 * 60 * 1000;
+    const minWindowMovePercent = 5;
+    let transfersWithPriceData = 0;
+    let transfersNearMove = 0;
+    let sumAbsWindowMove = 0;
+    let sumAbsWindowMoveLarge = 0;
+    let largeWithPriceData = 0;
+    let upCount = 0;
+    let downCount = 0;
+    let flatCount = 0;
+
+    for (const transfer of tokenTransfers) {
+      const timestampMs = Number(transfer.timeStamp) * 1000;
+      if (Number.isNaN(timestampMs)) {
+        continue;
+      }
+      const context = buildTransferPriceContext(
+        priceSeries,
+        timestampMs,
+        windowMs
+      );
+      if (context.windowChangePercent === null) {
+        continue;
+      }
+      transfersWithPriceData += 1;
+      const absMove = Math.abs(context.windowChangePercent);
+      sumAbsWindowMove += absMove;
+      if (absMove >= minWindowMovePercent) {
+        transfersNearMove += 1;
+      }
+      if (context.direction === "up") {
+        upCount += 1;
+      } else if (context.direction === "down") {
+        downCount += 1;
+      } else if (context.direction === "flat") {
+        flatCount += 1;
+      }
+
+      if (largeTransferThreshold !== null) {
+        try {
+          const parsed = BigInt(transfer.value);
+          if (parsed >= BigInt(largeTransferThreshold)) {
+            sumAbsWindowMoveLarge += absMove;
+            largeWithPriceData += 1;
+          }
+        } catch {
+          // Skip invalid value for large transfer stats.
+        }
+      }
+    }
+
+    if (transfersWithPriceData === 0) {
+      dataGaps.push("No transfers aligned to market price series.");
+    } else {
+      const percentNearMove =
+        transfersWithPriceData > 0
+          ? (transfersNearMove / transfersWithPriceData) * 100
+          : 0;
+      const averageAbsWindowMove =
+        transfersWithPriceData > 0
+          ? sumAbsWindowMove / transfersWithPriceData
+          : null;
+      const averageAbsWindowMoveForLarge =
+        largeWithPriceData > 0
+          ? sumAbsWindowMoveLarge / largeWithPriceData
+          : null;
+
+      const dominantWindowDirection = resolveDominantDirection(
+        upCount,
+        downCount,
+        flatCount
+      );
+
+      priceTiming = {
+        windowHours,
+        transfersWithPriceData,
+        transfersNearMove,
+        percentNearMove,
+        averageAbsWindowMove,
+        averageAbsWindowMoveForLarge,
+        dominantWindowDirection
+      };
+    }
+  } else {
+    dataGaps.push("Insufficient market price series for timing alignment.");
   }
 
   return {
@@ -140,8 +283,72 @@ function summarizeTokenActivity(
     recentTransferAt,
     firstTransferAt,
     averageTransferSize,
-    uniqueCounterparties: uniqueCounterparties.size
+    medianTransferSize,
+    largeTransferThreshold,
+    largeTransferCount,
+    transferSizeUnits: "base",
+    priceTiming,
+    uniqueCounterparties: uniqueCounterparties.size,
+    dataGaps: dataGaps.length > 0 ? dataGaps : undefined
   };
+}
+
+function buildTransferPriceContext(
+  priceSeries: Array<{ timestampMs: number; priceUsd: number }>,
+  transferTimestampMs: number,
+  windowMs: number
+): TransferPriceContext {
+  const before = findNearestPrice(priceSeries, transferTimestampMs - windowMs);
+  const after = findNearestPrice(priceSeries, transferTimestampMs + windowMs);
+
+  if (!before || !after || before.priceUsd <= 0) {
+    return { windowChangePercent: null, direction: "unknown" };
+  }
+
+  const windowChangePercent =
+    ((after.priceUsd - before.priceUsd) / before.priceUsd) * 100;
+  let direction: TransferPriceContext["direction"] = "flat";
+  if (windowChangePercent > 0.25) {
+    direction = "up";
+  } else if (windowChangePercent < -0.25) {
+    direction = "down";
+  }
+
+  return { windowChangePercent, direction };
+}
+
+function findNearestPrice(
+  series: Array<{ timestampMs: number; priceUsd: number }>,
+  targetMs: number
+): { timestampMs: number; priceUsd: number } | null {
+  let nearest: { timestampMs: number; priceUsd: number } | null = null;
+  let nearestDelta = Number.POSITIVE_INFINITY;
+  for (const entry of series) {
+    const delta = Math.abs(entry.timestampMs - targetMs);
+    if (delta < nearestDelta) {
+      nearest = entry;
+      nearestDelta = delta;
+    }
+  }
+  return nearest;
+}
+
+function resolveDominantDirection(
+  upCount: number,
+  downCount: number,
+  flatCount: number
+): "up" | "down" | "mixed" | "flat" | "unknown" {
+  const total = upCount + downCount + flatCount;
+  if (total === 0) return "unknown";
+  const max = Math.max(upCount, downCount, flatCount);
+  const tied =
+    (upCount === max ? 1 : 0) +
+    (downCount === max ? 1 : 0) +
+    (flatCount === max ? 1 : 0);
+  if (tied > 1) return "mixed";
+  if (upCount === max) return "up";
+  if (downCount === max) return "down";
+  return "flat";
 }
 
 function cleanModelResponse(content: string): string {
@@ -157,10 +364,16 @@ function buildUserPrompt(
   tokenAddress: string,
   marketSnapshot: TokenMarketSnapshot
 ): string {
-  const activitySummary = summarizeTokenActivity(walletInfo, tokenAddress);
+  const activitySummary = summarizeTokenActivity(
+    walletInfo,
+    tokenAddress,
+    marketSnapshot
+  );
   return [
     "Combine the wallet behavior snapshot with the token market context.",
     "Return conservative insights with clear evidence and uncertainty.",
+    "Use transfer size and price timing context to confirm behavior-market alignment.",
+    "If timing data is missing, list it under dataGaps and stay conservative.",
     "Wallet token activity summary:",
     JSON.stringify(activitySummary),
     "Token market snapshot:",

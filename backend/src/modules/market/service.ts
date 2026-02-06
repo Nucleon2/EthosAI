@@ -275,6 +275,10 @@ export async function buildTokenMarketSnapshot(
     marketData,
     technicalPatterns,
     news: buildNewsFromStatusUpdates(coin),
-    sentiment: buildSentimentFromCoinData(coin)
+    sentiment: buildSentimentFromCoinData(coin),
+    priceSeries: prices.map((entry) => ({
+      timestampMs: entry[0],
+      priceUsd: entry[1]
+    }))
   };
 }
