@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { createWalletRoutes } from "./modules/wallet";
 
 /**
  * Bootstrap the Elysia application
@@ -17,6 +18,9 @@ export function createApp(): Elysia {
       status: "ok"
     };
   });
+
+  // Register wallet routes
+  app.group("/api", (group) => group.use(createWalletRoutes()));
 
   return app;
 }

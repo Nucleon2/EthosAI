@@ -213,7 +213,14 @@ PORT=3000
 NODE_ENV=development
 ETH_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
 MARKET_API_KEY=your_coingecko_or_exchange_key
+ETHERSCAN_API_KEY=your_etherscan_api_key
+DEEPSEEK_API_KEY=your_deepseek_api_key
+# Optional overrides
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
 ```
+
+Get your free Etherscan API key at: https://etherscan.io/apis
 
 ### Run Development Server
 
@@ -233,7 +240,38 @@ curl http://localhost:3000/api/ping
 
 # Expected response:
 # {"pong":true,"timestamp":"2026-02-06T15:02:24.223Z","status":"ok"}
+
+# Test wallet API (use Vitalik's address as example)
+curl http://localhost:3000/api/address/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
+
+# Get only balance
+curl http://localhost:3000/api/address/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045/balance
+
+# Get transactions with limit
+curl "http://localhost:3000/api/address/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045/transactions?limit=10"
 ```
+
+### Wallet API
+
+The system provides a comprehensive Wallet API for retrieving Ethereum wallet data:
+
+**Endpoints:**
+- `GET /api/address/:walletAddress` - Complete wallet info (balance, transactions, tokens, NFTs)
+- `GET /api/address/:walletAddress/balance` - ETH balance only
+- `GET /api/address/:walletAddress/transactions` - Normal transactions
+- `GET /api/address/:walletAddress/tokens` - ERC20 token transfers
+- `GET /api/address/:walletAddress/nfts` - ERC721 NFT transfers
+
+**Features:**
+- ✅ Full Zod validation for all data
+- ✅ TypeScript types for complete type safety
+- ✅ Parallel data fetching for efficiency
+- ✅ Configurable transaction limits (up to 10,000)
+- ✅ Comprehensive error handling
+- ✅ Standardized JSON responses
+- ✅ Built-in Deepseek-powered behavior insight alongside raw wallet data
+
+**📖 See [`backend/WALLET_API.md`](backend/WALLET_API.md) for complete API documentation**
 
 ### Run Tests
 
