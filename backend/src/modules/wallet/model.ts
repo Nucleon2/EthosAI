@@ -196,7 +196,8 @@ export const tokenBehaviorInsightSchema = z.object({
     winningPatterns: z.array(z.string()),
     losingPatterns: z.array(z.string()),
     reflectionPrompts: z.array(z.string()),
-    habitCelebrations: z.array(z.string())
+    habitCelebrations: z.array(z.string()),
+    dataGaps: z.array(z.string())
   })
 });
 
