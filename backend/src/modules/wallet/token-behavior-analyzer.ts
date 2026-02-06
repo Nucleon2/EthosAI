@@ -97,11 +97,25 @@ function summarizeTokenActivity(
 
   let averageTransferSize: number | null = null;
   if (tokenTransfers.length > 0) {
-    const totals = tokenTransfers.reduce((sum, transfer) => {
-      const parsed = Number(transfer.value);
-      return sum + (Number.isNaN(parsed) ? 0 : parsed);
-    }, 0);
-    averageTransferSize = totals / tokenTransfers.length;
+    const totalValue = tokenTransfers.reduce((sum, transfer) => {
+      try {
+        // ERC20Transfer.value is a decimal string in base units; use BigInt to avoid precision loss.
+        const parsed = BigInt(transfer.value);
+        return sum + parsed;
+      } catch {
+        // If parsing fails for any transfer, skip it.
+        return sum;
+      }
+    }, 0n as bigint);
+
+    const avgBigInt = totalValue / BigInt(tokenTransfers.length);
+
+    // Only convert to number if within the safe integer range; otherwise, omit the value.
+    if (avgBigInt <= BigInt(Number.MAX_SAFE_INTEGER)) {
+      averageTransferSize = Number(avgBigInt);
+    } else {
+      averageTransferSize = null;
+    }
   }
 
   return {

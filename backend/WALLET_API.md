@@ -201,7 +201,7 @@ curl "http://localhost:3000/api/address/0x742d35Cc6634C0532925a3b844Bc9e7595f0bE
     "marketDays": 30,
     "retrievedAt": "2026-02-06T...",
     "analysisModel": "deepseek-chat",
-    "analysisError": null
+    "analysisError": "Behavior analysis unavailable (rate limit)"
   }
 }
 ```

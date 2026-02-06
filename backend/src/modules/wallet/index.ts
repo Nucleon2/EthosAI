@@ -124,10 +124,9 @@ export function createWalletRoutes(
                         parseInt(query.limit || "100", 10),
                         10000
                     );
-                    const days = Math.min(
-                        parseInt(query.days || "30", 10),
-                        365
-                    );
+                    const parsedDays = parseInt(query.days || "30", 10);
+                    const normalizedDays = Number.isNaN(parsedDays) ? 30 : parsedDays;
+                    const days = Math.min(Math.max(normalizedDays, 1), 365);
 
                     const [walletInfo, marketSnapshot] = await Promise.all([
                         service.getWalletTokenActivity(walletAddress, tokenAddress, limit),

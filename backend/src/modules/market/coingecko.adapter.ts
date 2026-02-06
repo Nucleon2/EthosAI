@@ -21,7 +21,6 @@ export async function getCoinById(coinId: string): Promise<CoingeckoCoin> {
   url.searchParams.append("developer_data", "true");
   url.searchParams.append("sparkline", "false");
   url.searchParams.append("status_updates", "true");
-  url.searchParams.append("sparkline", "false");
 
   const response = await fetch(url.toString());
   if (!response.ok) {
