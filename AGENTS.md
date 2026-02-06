@@ -425,4 +425,4 @@ The primary goal is explainable market intelligence
 
 Trading execution is explicitly out of scope
 
-Access ./backend/.agents/skills/elysiajs for Elysia skill references
+Access ./.agents/skills/elysiajs for Elysia skill references
