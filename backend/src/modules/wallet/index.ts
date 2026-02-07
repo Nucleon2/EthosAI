@@ -5,6 +5,7 @@ import { analyzeWalletBehavior } from "./behavior-analyzer";
 import { analyzeTokenBehavior } from "./token-behavior-analyzer";
 import { formatEther } from "ethers";
 import { marketService } from "../market/service";
+import { databaseService } from "../database";
 
 /**
  * Wallet routes for Ethereum address analysis
@@ -59,17 +60,35 @@ export function createWalletRoutes(
                     }
 
                     const analyzedAt = behavior ? new Date().toISOString() : undefined;
+                    const ethBalance = formatEther(walletInfo.balance);
+                    const modelUsed = Bun.env.DEEPSEEK_MODEL || "deepseek-chat";
+
+                    // Persist analysis to database (fire-and-forget)
+                    if (behavior) {
+                        databaseService
+                            .saveWalletAnalysis(
+                                walletAddress,
+                                behavior,
+                                { model: modelUsed, ethBalance }
+                            )
+                            .catch((err) => {
+                                console.error(
+                                    "[db] Failed to persist wallet analysis:",
+                                    err
+                                );
+                            });
+                    }
 
                     return {
                         success: true,
                         behavior,
                         meta: {
                             address: walletAddress,
-                            balance: formatEther(walletInfo.balance),
+                            balance: ethBalance,
                             transactionLimit: limit,
                             retrievedAt: new Date().toISOString(),
                             behaviorAnalyzedAt: analyzedAt,
-                            behaviorModel: behavior ? Bun.env.DEEPSEEK_MODEL || "deepseek-chat" : undefined,
+                            behaviorModel: behavior ? modelUsed : undefined,
                             behaviorError
                         }
                     };
@@ -149,19 +168,37 @@ export function createWalletRoutes(
                                 : "Token behavior analysis failed";
                     }
 
+                    const ethBalance = formatEther(walletInfo.balance);
+                    const modelUsed = Bun.env.DEEPSEEK_MODEL || "deepseek-chat";
+
+                    // Persist token analysis to database (fire-and-forget)
+                    if (tokenBehavior) {
+                        databaseService
+                            .saveTokenAnalysis(
+                                walletAddress,
+                                tokenAddress,
+                                tokenBehavior,
+                                { model: modelUsed, ethBalance, marketDays: days }
+                            )
+                            .catch((err) => {
+                                console.error(
+                                    "[db] Failed to persist token analysis:",
+                                    err
+                                );
+                            });
+                    }
+
                     return {
                         success: true,
                         tokenAnalysis: tokenBehavior,
                         meta: {
                             address: walletAddress,
                             tokenAddress,
-                            balance: formatEther(walletInfo.balance),
+                            balance: ethBalance,
                             transactionLimit: limit,
                             marketDays: days,
                             retrievedAt: new Date().toISOString(),
-                            analysisModel: tokenBehavior
-                                ? Bun.env.DEEPSEEK_MODEL || "deepseek-chat"
-                                : undefined,
+                            analysisModel: tokenBehavior ? modelUsed : undefined,
                             analysisError: behaviorError
                         }
                     };
