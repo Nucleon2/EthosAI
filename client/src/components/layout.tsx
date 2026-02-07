@@ -5,10 +5,10 @@
 
 import { Link, Outlet, useLocation } from "react-router";
 import {
-  RiShieldKeyholeLine,
   RiHome4Line,
   RiDashboardLine,
 } from "@remixicon/react";
+import ethosLogo from "@/assets/ethos-ai-logo.png";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +30,9 @@ export function Layout() {
             to="/"
             className="flex items-center gap-2 transition-opacity hover:opacity-80"
           >
-            <RiShieldKeyholeLine className="size-5 text-primary" />
+            <img src={ethosLogo} alt="Ethos AI" className="size-8" />
             <span className="text-sm font-bold tracking-tight text-foreground">
-              Derive
+              Ethos AI
             </span>
           </Link>
 

@@ -9,9 +9,9 @@ import { Link } from "react-router";
 import {
   RiCheckboxCircleLine,
   RiCloseLine,
-  RiShieldKeyholeLine,
   RiDashboardLine,
 } from "@remixicon/react";
+import ethosLogo from "@/assets/ethos-ai-logo.png";
 
 import { useWalletAnalysis } from "@/hooks/use-wallet-analysis";
 import { useTokenAnalysis } from "@/hooks/use-token-analysis";
@@ -85,9 +85,9 @@ export function HomePage() {
         <BlurFade delay={0.1} duration={0.5}>
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-2">
-              <RiShieldKeyholeLine className="size-8 text-primary" />
+              <img src={ethosLogo} alt="Ethos AI" className="size-12" />
               <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                Derive
+                Ethos AI
               </h1>
             </div>
             <p className="max-w-md text-sm text-muted-foreground">
