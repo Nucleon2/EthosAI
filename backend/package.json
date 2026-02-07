@@ -12,6 +12,8 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "@elysiajs/cors": "^1.4.1",
+    "@elysiajs/openapi": "^1.4.14",
     "elysia": "^1.1.31",
     "ethers": "^6.16.0",
     "zod": "^4.3.6"
