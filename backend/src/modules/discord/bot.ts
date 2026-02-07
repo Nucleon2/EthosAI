@@ -44,9 +44,15 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
   }
 }
 
+/** Maximum time (ms) to wait for the Discord gateway login. */
+const LOGIN_TIMEOUT_MS = 25_000;
+
 /**
  * Starts the Discord bot — logs in, registers event handlers.
  * Idempotent: calling multiple times returns the existing client.
+ *
+ * If login fails, the client is cleaned up so subsequent calls
+ * can retry instead of returning a broken instance.
  */
 export async function startBot(): Promise<Client> {
   if (client) return client;
@@ -56,15 +62,33 @@ export async function startBot(): Promise<Client> {
     throw new Error("DISCORD_BOT_TOKEN environment variable is not set");
   }
 
-  client = createClient();
+  const newClient = createClient();
 
-  client.on(Events.InteractionCreate, handleInteraction);
+  newClient.on(Events.InteractionCreate, handleInteraction);
 
-  client.once(Events.ClientReady, (c) => {
-    console.log(`Discord bot logged in as ${c.user.tag}`);
+  newClient.once(Events.ClientReady, (c) => {
+    console.log(`[discord] Bot logged in as ${c.user.tag}`);
   });
 
-  await client.login(token);
+  try {
+    await Promise.race([
+      newClient.login(token),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Discord login timed out after 25s")),
+          LOGIN_TIMEOUT_MS
+        )
+      ),
+    ]);
+  } catch (error) {
+    // Clean up the failed client so retries create a fresh one
+    newClient.removeAllListeners();
+    newClient.destroy();
+    console.error("[discord] Bot login failed:", error);
+    throw error;
+  }
+
+  client = newClient;
   return client;
 }
 

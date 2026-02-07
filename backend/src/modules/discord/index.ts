@@ -11,19 +11,29 @@ import { sessionManager } from "./session-manager";
  */
 export function createDiscordRoutes() {
   return new Elysia({ prefix: "/discord" })
-    .post("/start", async () => {
+    .post("/start", async ({ set }) => {
       try {
         await startBot();
         return { status: "ok", message: "Discord bot started" };
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown error";
+        console.error("[discord] Failed to start bot:", error);
+        set.status = 500;
         return { status: "error", message };
       }
     })
-    .post("/stop", async () => {
-      await stopBot();
-      return { status: "ok", message: "Discord bot stopped" };
+    .post("/stop", async ({ set }) => {
+      try {
+        await stopBot();
+        return { status: "ok", message: "Discord bot stopped" };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error("[discord] Failed to stop bot:", error);
+        set.status = 500;
+        return { status: "error", message };
+      }
     })
     .get("/status", () => {
       const client = getClient();
