@@ -59,6 +59,34 @@ export async function getCoinMarketChart(
   return coingeckoMarketChartSchema.parse(payload);
 }
 
+const ethPriceResponseSchema = z.object({
+  ethereum: z.object({
+    usd: z.number()
+  })
+});
+
+/**
+ * Fetch the current ETH price in USD via CoinGecko simple/price endpoint.
+ *
+ * Returns null if the request fails so callers can degrade gracefully.
+ */
+export async function getEthPriceUsd(): Promise<number | null> {
+  try {
+    const response = await fetchCoingecko("/simple/price", {
+      ids: "ethereum",
+      vs_currencies: "usd"
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = await response.json();
+    const parsed = ethPriceResponseSchema.parse(payload);
+    return parsed.ethereum.usd;
+  } catch {
+    return null;
+  }
+}
+
 export async function getCoinIdByContract(
   tokenAddress: string
 ): Promise<string> {

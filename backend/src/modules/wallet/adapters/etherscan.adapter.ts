@@ -279,6 +279,31 @@ export class EtherscanAdapter {
   }
 
   /**
+   * Get ERC-20 token balance for a specific contract and wallet address.
+   *
+   * Returns the raw token balance in the token's smallest unit (e.g. wei-equivalent).
+   * Caller is responsible for dividing by 10^decimals.
+   */
+  async getTokenBalance(
+    address: EthereumAddress,
+    contractAddress: string
+  ): Promise<string> {
+    const response = await this.fetchFromEtherscan({
+      module: "account",
+      action: "tokenbalance",
+      contractaddress: contractAddress,
+      address: address,
+      tag: "latest"
+    });
+
+    if (typeof response.result !== "string") {
+      throw new Error("Unexpected token balance response format");
+    }
+
+    return response.result;
+  }
+
+  /**
    * Get all wallet information in one call
    * 
    * Aggregates balance, transactions, internal transactions,
