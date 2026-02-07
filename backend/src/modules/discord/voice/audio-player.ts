@@ -12,6 +12,15 @@ import { Readable } from "node:stream";
 const players = new Map<string, AudioPlayer>();
 
 /**
+ * Bytes per 20ms frame at 48kHz, 16-bit, stereo.
+ *
+ * 48000 samples/s * 0.020s * 2 channels * 2 bytes = 3840 bytes.
+ *
+ * Discord's Opus encoder expects exactly this chunk size per frame.
+ */
+const FRAME_SIZE = 3840;
+
+/**
  * Resamples PCM audio from 24kHz mono to 48kHz stereo.
  *
  * ElevenLabs outputs signed 16-bit LE, 24kHz, mono.
@@ -42,7 +51,9 @@ function resample24kMonoTo48kStereo(input: Buffer): Buffer {
         ? input.readInt16LE((i + 1) * bytesPerSample)
         : currentSample;
 
-    const midSample = Math.round((currentSample + nextSample) / 2);
+    const midSample = Math.round(
+      (currentSample + nextSample) / 2
+    );
 
     // Write first upsampled frame (stereo: L + R)
     output.writeInt16LE(currentSample, writeOffset);
@@ -59,10 +70,45 @@ function resample24kMonoTo48kStereo(input: Buffer): Buffer {
 }
 
 /**
+ * Creates a Readable stream that yields PCM data in frame-sized
+ * chunks (3840 bytes = 20ms at 48kHz stereo 16-bit).
+ *
+ * This prevents discord.js from receiving the entire buffer at
+ * once, which causes negative timeout calculations in its
+ * internal frame scheduler.
+ */
+function createFramedStream(pcmData: Buffer): Readable {
+  let offset = 0;
+
+  return new Readable({
+    read() {
+      if (offset >= pcmData.length) {
+        this.push(null);
+        return;
+      }
+
+      const end = Math.min(offset + FRAME_SIZE, pcmData.length);
+      const chunk = pcmData.subarray(offset, end);
+
+      // If the last chunk is smaller than a frame, pad with silence
+      if (chunk.length < FRAME_SIZE) {
+        const padded = Buffer.alloc(FRAME_SIZE);
+        chunk.copy(padded);
+        this.push(padded);
+      } else {
+        this.push(chunk);
+      }
+
+      offset = end;
+    },
+  });
+}
+
+/**
  * Plays PCM audio from ElevenLabs through the voice connection.
  *
  * Accepts 24kHz mono PCM from TTS, resamples to 48kHz stereo,
- * and feeds it to Discord's audio player as Raw PCM.
+ * and feeds it to Discord's audio player as Raw PCM in 20ms frames.
  *
  * Returns a promise that resolves when playback finishes.
  */
@@ -83,7 +129,8 @@ export async function playAudio(
   // Resample from ElevenLabs format to Discord format
   const resampled = resample24kMonoTo48kStereo(pcmData);
 
-  const stream = Readable.from(resampled);
+  // Stream in frame-sized chunks to avoid negative timeout warnings
+  const stream = createFramedStream(resampled);
   const resource = createAudioResource(stream, {
     inputType: StreamType.Raw,
     inlineVolume: false,

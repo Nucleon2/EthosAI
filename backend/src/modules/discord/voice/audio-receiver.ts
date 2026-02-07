@@ -25,6 +25,10 @@ export type SpeakingEndHandler = (userId: string) => void;
  *
  * Discord sends Opus-encoded packets at 48kHz stereo.
  * We forward raw Opus directly to Deepgram (it accepts Opus natively).
+ *
+ * Important: We track the active stream per user to avoid stacking
+ * duplicate listeners when Discord fires multiple speaking-start
+ * events for the same utterance.
  */
 export function subscribeToUser(
   connection: VoiceConnection,
@@ -34,9 +38,16 @@ export function subscribeToUser(
 ): () => void {
   const receiver = connection.receiver;
 
-  // Listen for when the user starts speaking
+  /** The currently active opus stream for this user. */
+  let activeStream: Readable | null = null;
+
   const onSpeakingStart = (speakingUserId: string): void => {
     if (speakingUserId !== userId) return;
+
+    // If we already have an active stream, don't subscribe again.
+    // Discord may fire speaking-start multiple times for the same
+    // utterance; subscribing again stacks listeners and leaks memory.
+    if (activeStream && !activeStream.destroyed) return;
 
     const opusStream: Readable = receiver.subscribe(userId, {
       end: {
@@ -45,12 +56,19 @@ export function subscribeToUser(
       },
     });
 
+    activeStream = opusStream;
+
     opusStream.on("data", (chunk: Buffer) => {
       onChunk(chunk, userId);
     });
 
     opusStream.on("end", () => {
+      activeStream = null;
       onEnd(userId);
+    });
+
+    opusStream.on("error", () => {
+      activeStream = null;
     });
   };
 
@@ -59,5 +77,9 @@ export function subscribeToUser(
   // Return cleanup
   return () => {
     receiver.speaking.off("start", onSpeakingStart);
+    if (activeStream && !activeStream.destroyed) {
+      activeStream.destroy();
+      activeStream = null;
+    }
   };
 }
