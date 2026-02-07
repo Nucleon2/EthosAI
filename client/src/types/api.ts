@@ -159,4 +159,121 @@ export interface SocialPostsResponse {
     generatedAt: string;
     model?: string;
   };
+// ---------------------------------------------------------------------------
+// History & Database Record Types
+// ---------------------------------------------------------------------------
+
+/** Persisted wallet analysis record from the database. */
+export interface WalletAnalysisRecord {
+  id: string;
+  userId: string;
+  createdAt: string;
+  summary: string;
+  activityLevel: string;
+  activityLevelRationale: string;
+  dominantPatterns: BehaviorDetail[];
+  tokenHabits: BehaviorDetail[];
+  riskSignals: BehaviorDetail[];
+  reflectionQuestions: string[];
+  model: string | null;
+  ethBalance: string | null;
+}
+
+/** Persisted token analysis record from the database. */
+export interface TokenAnalysisRecord {
+  id: string;
+  userId: string;
+  tokenAddress: string;
+  createdAt: string;
+  marketBrief: string;
+  technicalPatterns: TechnicalPattern[];
+  newsSummary: NewsItem[];
+  sentiment: Sentiment;
+  transferSizeMetrics: TransferSizeMetrics;
+  behavioralInsights: TokenBehavioralInsights;
+  model: string | null;
+  ethBalance: string | null;
+  marketDays: number | null;
+}
+
+/** Paginated meta shared across history responses. */
+export interface PaginatedMeta {
+  address: string;
+  count: number;
+  limit: number;
+  offset: number;
+  retrievedAt: string;
+}
+
+/** Response from GET /api/address/:walletAddress/history */
+export interface WalletAnalysisHistoryResponse {
+  success: boolean;
+  analyses?: WalletAnalysisRecord[];
+  error?: string;
+  meta: PaginatedMeta;
+}
+
+/** Response from GET /api/address/:walletAddress/token/:tokenAddress/history */
+export interface TokenAnalysisHistoryResponse {
+  success: boolean;
+  analyses?: TokenAnalysisRecord[];
+  error?: string;
+  meta: PaginatedMeta & { tokenAddress: string };
+}
+
+// ---------------------------------------------------------------------------
+// Discord Types
+// ---------------------------------------------------------------------------
+
+/** Discord coaching session record from the database. */
+export interface DiscordSession {
+  id: string;
+  userId: string;
+  discordUserId: string;
+  guildId: string | null;
+  channelId: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  status: string;
+  nudgesDelivered: string[] | null;
+  topicsDiscussed: string[] | null;
+  sessionSummary: string | null;
+}
+
+/** Response from GET /api/discord/status */
+export interface DiscordStatusResponse {
+  online: boolean;
+  username: string | null;
+  guilds: number;
+}
+
+/** Response from GET /api/discord/sessions/:walletAddress */
+export interface DiscordSessionsResponse {
+  success: boolean;
+  sessions?: DiscordSession[];
+  error?: string;
+  meta: PaginatedMeta;
+}
+
+/** Response from GET /api/discord/sessions/:walletAddress/latest */
+export interface DiscordLatestSessionResponse {
+  success: boolean;
+  session?: DiscordSession;
+  error?: string;
+  meta: { retrievedAt: string };
+}
+
+/** Linked user info from GET /api/discord/user/:discordUserId */
+export interface DiscordUserResponse {
+  success: boolean;
+  user?: {
+    id: string;
+    walletAddress: string;
+    discordUserId: string | null;
+    firstSeenAt: string;
+    lastActiveAt: string;
+  };
+  hasActiveSession?: boolean;
+  error?: string;
+  meta: { retrievedAt: string };
 }

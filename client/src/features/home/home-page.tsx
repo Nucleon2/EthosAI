@@ -5,10 +5,12 @@
  */
 
 import { useCallback } from "react";
+import { Link } from "react-router";
 import {
   RiCheckboxCircleLine,
   RiCloseLine,
   RiShieldKeyholeLine,
+  RiDashboardLine,
 } from "@remixicon/react";
 
 import { useWalletAnalysis } from "@/hooks/use-wallet-analysis";
@@ -185,6 +187,14 @@ export function HomePage() {
                           Change wallet
                         </button>
                       </div>
+
+                      <Link
+                        to="/dashboard"
+                        className="inline-flex items-center gap-1.5 border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                      >
+                        <RiDashboardLine className="size-3.5" />
+                        View Dashboard
+                      </Link>
                     </div>
                   </BlurFade>
 
