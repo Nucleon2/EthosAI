@@ -24,6 +24,35 @@ if (!API_BASE_URL) {
   );
 }
 
+/**
+ * Custom error for HTTP 429 responses.
+ * Carries the number of seconds the client should wait before retrying.
+ */
+export class RateLimitError extends Error {
+  retryAfterSeconds: number;
+
+  constructor(message: string, retryAfterSeconds: number) {
+    super(message);
+    this.name = "RateLimitError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+/**
+ * Throws a RateLimitError when the response status is 429.
+ * Parses the Retry-After header when present.
+ */
+function throwIfRateLimited(response: Response): void {
+  if (response.status === 429) {
+    const retryAfter = response.headers.get("retry-after");
+    const seconds = retryAfter ? parseInt(retryAfter, 10) : 60;
+    throw new RateLimitError(
+      `Server is busy. Please wait ${seconds} seconds and try again.`,
+      seconds
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Wallet Analysis
 // ---------------------------------------------------------------------------
@@ -40,6 +69,8 @@ export async function analyzeWallet(
   url.searchParams.set("limit", String(limit));
 
   const response = await fetch(url.toString());
+
+  throwIfRateLimited(response);
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
@@ -105,6 +136,8 @@ export async function analyzeToken(
   }
 
   const response = await fetch(url.toString());
+
+  throwIfRateLimited(response);
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);

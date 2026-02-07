@@ -7,7 +7,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWalletStore } from "@/stores/wallet-store";
-import { analyzeToken } from "@/services/api";
+import { analyzeToken, RateLimitError } from "@/services/api";
 import { queryKeys } from "@/lib/query-client";
 
 export function useTokenAnalysis() {
@@ -33,7 +33,10 @@ export function useTokenAnalysis() {
       }
       return analyzeToken(walletAddress, address);
     },
-    retry: 3,
+    retry: (failureCount, error) => {
+      if (error instanceof RateLimitError) return false;
+      return failureCount < 3;
+    },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     onMutate: (address) => {
       if (!walletAddress) {
