@@ -9,12 +9,42 @@ import {
   RiCloseLine,
   RiSparklingLine,
   RiShareLine,
+  RiWallet3Line,
+  RiCoinLine,
 } from "@remixicon/react";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SocialShareModal } from "@/features/social";
 import type { TokenAnalysis, TokenAnalysisMeta } from "@/types/api";
+
+/**
+ * Formats a number as a compact USD string (e.g. "$1,234.56").
+ * Falls back to "--" when the value is null/undefined.
+ */
+function formatUsd(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "--";
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Formats a numeric string or number to a readable token amount.
+ * Uses up to 6 decimal places and strips trailing zeros.
+ */
+function formatTokenAmount(value: string | null | undefined): string {
+  if (value === null || value === undefined) return "--";
+  const num = parseFloat(value);
+  if (Number.isNaN(num)) return "--";
+  return num.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  });
+}
 
 interface TokenAnalysisResultProps {
   analysis: TokenAnalysis;
@@ -51,6 +81,55 @@ export function TokenAnalysisResult({
               <RiCloseLine className="size-4" />
             </button>
           </div>
+
+          {/* Balance & Price Overview */}
+          {meta && (
+            <div className="grid grid-cols-2 gap-3">
+              {/* ETH Balance */}
+              <div className="flex flex-col gap-1 rounded border border-border bg-muted/30 p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <RiWallet3Line className="size-3 text-muted-foreground" />
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    ETH Balance
+                  </span>
+                </div>
+                <span className="text-sm font-semibold text-foreground">
+                  {formatTokenAmount(meta.balance)} ETH
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatUsd(meta.ethBalanceUsd)}
+                </span>
+              </div>
+
+              {/* Token Holdings */}
+              <div className="flex flex-col gap-1 rounded border border-border bg-muted/30 p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <RiCoinLine className="size-3 text-muted-foreground" />
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {meta.tokenSymbol?.toUpperCase() ?? "Token"} Holdings
+                  </span>
+                </div>
+                <span className="text-sm font-semibold text-foreground">
+                  {formatTokenAmount(meta.tokenBalance)}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatUsd(meta.tokenBalanceUsd)}
+                </span>
+              </div>
+
+              {/* Token Price - full width */}
+              {meta.tokenPriceUsd !== null && meta.tokenPriceUsd !== undefined && (
+                <div className="col-span-2 flex items-center justify-between rounded border border-border bg-muted/30 px-2.5 py-2">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {meta.tokenName ?? "Token"} Price
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {formatUsd(meta.tokenPriceUsd)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Market brief */}
           <p className="text-xs leading-relaxed text-muted-foreground">
