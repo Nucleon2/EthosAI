@@ -9,7 +9,7 @@ import { CLIENT_URL, NODE_ENV } from "./constants/env.constants";
 import openapi from "@elysiajs/openapi";
 
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT ?? 3000);
 
 new Elysia()
   .use(cors({

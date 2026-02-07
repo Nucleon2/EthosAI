@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import type { PrismaClient, Prisma } from "@generated/prisma";
+import type { PrismaClient, Prisma } from "../../generated/prisma/client";
 
 /** JSON-compatible array type for Prisma JSON columns. */
 type JsonArray = Prisma.InputJsonValue[];
