@@ -47,7 +47,10 @@ export function useDiscordStatus(): UseDiscordStatusResult {
     queryFn: getDiscordStatus,
     refetchInterval: (query) => {
       const data = query.state.data as DiscordStatusResponse | undefined;
-      if (data?.status === "connecting") {
+      if (
+        data?.status === "connecting" ||
+        data?.status === "reconnecting"
+      ) {
         return CONNECTING_POLL_INTERVAL_MS;
       }
       return POLL_INTERVAL_MS;
@@ -90,7 +93,9 @@ export function useDiscordStatus(): UseDiscordStatusResult {
   const isToggling =
     startMutation.isPending || stopMutation.isPending;
 
-  const isConnecting = statusQuery.data?.status === "connecting";
+  const isConnecting =
+    statusQuery.data?.status === "connecting" ||
+    statusQuery.data?.status === "reconnecting";
 
   /** Extract error message from query error. */
   const error = statusQuery.error

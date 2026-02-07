@@ -21,8 +21,14 @@ export function createDiscordRoutes() {
       if (current.status === "online") {
         return { status: "ok", message: "Discord bot is already running" };
       }
-      if (current.status === "connecting") {
-        return { status: "ok", message: "Discord bot is already connecting" };
+      if (
+        current.status === "connecting" ||
+        current.status === "reconnecting"
+      ) {
+        return {
+          status: "ok",
+          message: "Discord bot is already connecting",
+        };
       }
 
       requestBotStart();
@@ -57,7 +63,7 @@ export function createDiscordRoutes() {
       const client = getClient();
       const { status, error } = getBotStatus();
       return {
-        online: status === "online",
+        online: status === "online" || status === "reconnecting",
         status,
         error,
         username: client?.user?.tag ?? null,

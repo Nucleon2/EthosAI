@@ -68,7 +68,7 @@ export function DiscordStatusIndicator() {
           "size-4",
           botState === "online"
             ? "text-[#5865F2]"
-            : botState === "connecting"
+            : botState === "connecting" || botState === "reconnecting"
               ? "text-yellow-500"
               : "text-muted-foreground"
         )}
@@ -80,7 +80,7 @@ export function DiscordStatusIndicator() {
             "inline-block size-1.5 rounded-full",
             botState === "online"
               ? "bg-green-500 animate-pulse"
-              : botState === "connecting"
+              : botState === "connecting" || botState === "reconnecting"
                 ? "bg-yellow-500 animate-pulse"
                 : botState === "error"
                   ? "bg-red-500"
@@ -92,9 +92,11 @@ export function DiscordStatusIndicator() {
             ? "Bot Online"
             : botState === "connecting"
               ? "Connecting..."
-              : botState === "error"
-                ? "Connection Failed"
-                : "Bot Offline"}
+              : botState === "reconnecting"
+                ? "Reconnecting..."
+                : botState === "error"
+                  ? "Connection Failed"
+                  : "Bot Offline"}
         </span>
       </div>
       {botState === "error" && status.error && (

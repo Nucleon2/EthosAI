@@ -250,7 +250,12 @@ export interface DiscordSession {
 /** Response from GET /api/discord/status */
 export interface DiscordStatusResponse {
   online: boolean;
-  status: "offline" | "connecting" | "online" | "error";
+  status:
+    | "offline"
+    | "connecting"
+    | "online"
+    | "reconnecting"
+    | "error";
   error: string | null;
   username: string | null;
   guilds: number;

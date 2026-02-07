@@ -11,13 +11,21 @@ import { handleLink } from "./commands/link";
 /**
  * Possible lifecycle states for the Discord bot.
  *
- * - offline:     Not running, no client exists.
- * - connecting:  Login has been initiated but the gateway
- *                handshake has not completed yet.
- * - online:      Client is authenticated and ready.
- * - error:       The most recent login attempt failed.
+ * - offline:       Not running, no client exists.
+ * - connecting:    Login has been initiated but the gateway
+ *                  handshake has not completed yet.
+ * - online:        Client is authenticated and ready.
+ * - reconnecting:  Gateway dropped; Discord.js is automatically
+ *                  attempting to re-establish the connection.
+ * - error:         The most recent login attempt failed, or the
+ *                  gateway connection was permanently lost.
  */
-export type BotStatus = "offline" | "connecting" | "online" | "error";
+export type BotStatus =
+  | "offline"
+  | "connecting"
+  | "online"
+  | "reconnecting"
+  | "error";
 
 let client: Client | null = null;
 let botStatus: BotStatus = "offline";
@@ -55,6 +63,68 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
     default:
       break;
   }
+}
+
+/**
+ * Attaches gateway lifecycle event listeners to a Discord client so
+ * that {@link botStatus} accurately tracks the real connection state.
+ *
+ * Discord.js has built-in auto-reconnect logic, but without these
+ * listeners the module-level status variable would remain "online"
+ * even if the underlying WebSocket dropped.
+ *
+ * Events handled:
+ * - shardDisconnect  — gateway WebSocket closed unexpectedly
+ * - shardReconnecting — automatic reconnect attempt started
+ * - shardResume       — reconnect succeeded, gateway is live again
+ * - shardError        — non-fatal gateway-level error
+ * - error             — unhandled client error (prevents crash)
+ * - warn              — gateway warnings (logged for diagnostics)
+ */
+function attachGatewayListeners(c: Client): void {
+  c.on(Events.ShardDisconnect, (event, shardId) => {
+    console.warn(
+      `[discord] Shard ${shardId} disconnected ` +
+        `(code ${event.code}, reason: ${event.reason || "none"})`
+    );
+    if (botStatus === "online") {
+      botStatus = "reconnecting";
+      lastError = `Shard disconnected (code ${event.code})`;
+    }
+  });
+
+  c.on(Events.ShardReconnecting, (shardId) => {
+    console.log(`[discord] Shard ${shardId} reconnecting...`);
+    if (botStatus !== "connecting") {
+      botStatus = "reconnecting";
+    }
+  });
+
+  c.on(Events.ShardResume, (shardId, replayedEvents) => {
+    console.log(
+      `[discord] Shard ${shardId} resumed ` +
+        `(replayed ${replayedEvents} events)`
+    );
+    botStatus = "online";
+    lastError = null;
+  });
+
+  c.on(Events.ShardError, (error, shardId) => {
+    console.error(
+      `[discord] Shard ${shardId} error:`,
+      error.message
+    );
+    lastError = `Shard error: ${error.message}`;
+  });
+
+  c.on(Events.Error, (error) => {
+    console.error("[discord] Client error:", error.message);
+    lastError = `Client error: ${error.message}`;
+  });
+
+  c.on(Events.Warn, (message) => {
+    console.warn(`[discord] Warning: ${message}`);
+  });
 }
 
 /**
@@ -99,6 +169,7 @@ export function requestBotStart(): void {
   }, 60_000);
 
   newClient.on(Events.InteractionCreate, handleInteraction);
+  attachGatewayListeners(newClient);
 
   newClient.once(Events.ClientReady, (c) => {
     clearTimeout(timeout);
@@ -141,6 +212,7 @@ export async function startBot(): Promise<Client> {
   const newClient = createClient();
 
   newClient.on(Events.InteractionCreate, handleInteraction);
+  attachGatewayListeners(newClient);
 
   return new Promise<Client>((resolve, reject) => {
     newClient.once(Events.ClientReady, (c) => {
