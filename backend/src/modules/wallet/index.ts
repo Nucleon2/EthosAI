@@ -5,6 +5,7 @@ import { analyzeWalletBehavior } from "./behavior-analyzer";
 import { analyzeTokenBehavior } from "./token-behavior-analyzer";
 import { formatEther } from "ethers";
 import { marketService } from "../market/service";
+import { databaseService } from "../database";
 
 /**
  * Wallet routes for Ethereum address analysis
@@ -59,17 +60,35 @@ export function createWalletRoutes(
                     }
 
                     const analyzedAt = behavior ? new Date().toISOString() : undefined;
+                    const ethBalance = formatEther(walletInfo.balance);
+                    const modelUsed = Bun.env.DEEPSEEK_MODEL || "deepseek-chat";
+
+                    // Persist analysis to database (fire-and-forget)
+                    if (behavior) {
+                        databaseService
+                            .saveWalletAnalysis(
+                                walletAddress,
+                                behavior,
+                                { model: modelUsed, ethBalance }
+                            )
+                            .catch((err) => {
+                                console.error(
+                                    "[db] Failed to persist wallet analysis:",
+                                    err
+                                );
+                            });
+                    }
 
                     return {
                         success: true,
                         behavior,
                         meta: {
                             address: walletAddress,
-                            balance: formatEther(walletInfo.balance),
+                            balance: ethBalance,
                             transactionLimit: limit,
                             retrievedAt: new Date().toISOString(),
                             behaviorAnalyzedAt: analyzedAt,
-                            behaviorModel: behavior ? Bun.env.DEEPSEEK_MODEL || "deepseek-chat" : undefined,
+                            behaviorModel: behavior ? modelUsed : undefined,
                             behaviorError
                         }
                     };
@@ -149,19 +168,37 @@ export function createWalletRoutes(
                                 : "Token behavior analysis failed";
                     }
 
+                    const ethBalance = formatEther(walletInfo.balance);
+                    const modelUsed = Bun.env.DEEPSEEK_MODEL || "deepseek-chat";
+
+                    // Persist token analysis to database (fire-and-forget)
+                    if (tokenBehavior) {
+                        databaseService
+                            .saveTokenAnalysis(
+                                walletAddress,
+                                tokenAddress,
+                                tokenBehavior,
+                                { model: modelUsed, ethBalance, marketDays: days }
+                            )
+                            .catch((err) => {
+                                console.error(
+                                    "[db] Failed to persist token analysis:",
+                                    err
+                                );
+                            });
+                    }
+
                     return {
                         success: true,
                         tokenAnalysis: tokenBehavior,
                         meta: {
                             address: walletAddress,
                             tokenAddress,
-                            balance: formatEther(walletInfo.balance),
+                            balance: ethBalance,
                             transactionLimit: limit,
                             marketDays: days,
                             retrievedAt: new Date().toISOString(),
-                            analysisModel: tokenBehavior
-                                ? Bun.env.DEEPSEEK_MODEL || "deepseek-chat"
-                                : undefined,
+                            analysisModel: tokenBehavior ? modelUsed : undefined,
                             analysisError: behaviorError
                         }
                     };
@@ -201,6 +238,152 @@ export function createWalletRoutes(
                         })
                     )
                 })
+            }
+        )
+        /**
+         * GET /api/address/:walletAddress/history
+         *
+         * Returns paginated wallet analysis history from the database.
+         * Does not trigger a new analysis — returns previously computed results.
+         *
+         * Query parameters:
+         * - limit: Number of records to return (default: 10, max: 50)
+         * - offset: Number of records to skip (default: 0)
+         */
+        .get(
+            "/address/:walletAddress/history",
+            async ({ params, query, set }) => {
+                try {
+                    const { walletAddress } = params;
+                    const limit = Math.min(
+                        parseInt(query.limit || "10", 10),
+                        50
+                    );
+                    const offset = parseInt(query.offset || "0", 10);
+
+                    const analyses = await databaseService.getWalletAnalysisHistory(
+                        walletAddress,
+                        limit,
+                        offset
+                    );
+
+                    return {
+                        success: true,
+                        analyses,
+                        meta: {
+                            address: walletAddress,
+                            count: analyses.length,
+                            limit,
+                            offset,
+                            retrievedAt: new Date().toISOString(),
+                        },
+                    };
+                } catch (error) {
+                    set.status = 400;
+                    return {
+                        success: false,
+                        error: error instanceof Error ? error.message : "Unknown error",
+                        meta: { retrievedAt: new Date().toISOString() },
+                    };
+                }
+            },
+            {
+                params: t.Object({
+                    walletAddress: t.String({
+                        description: "Ethereum wallet address (0x...)",
+                        pattern: "^0x[a-fA-F0-9]{40}$",
+                    }),
+                }),
+                query: t.Object({
+                    limit: t.Optional(
+                        t.String({
+                            description: "Number of records (default: 10, max: 50)",
+                            pattern: "^[0-9]+$",
+                        })
+                    ),
+                    offset: t.Optional(
+                        t.String({
+                            description: "Records to skip (default: 0)",
+                            pattern: "^[0-9]+$",
+                        })
+                    ),
+                }),
+            }
+        )
+        /**
+         * GET /api/address/:walletAddress/token/:tokenAddress/history
+         *
+         * Returns paginated token analysis history for a wallet + token pair.
+         * Does not trigger a new analysis — returns previously computed results.
+         *
+         * Query parameters:
+         * - limit: Number of records to return (default: 10, max: 50)
+         * - offset: Number of records to skip (default: 0)
+         */
+        .get(
+            "/address/:walletAddress/token/:tokenAddress/history",
+            async ({ params, query, set }) => {
+                try {
+                    const { walletAddress, tokenAddress } = params;
+                    const limit = Math.min(
+                        parseInt(query.limit || "10", 10),
+                        50
+                    );
+                    const offset = parseInt(query.offset || "0", 10);
+
+                    const analyses = await databaseService.getTokenAnalysisHistory(
+                        walletAddress,
+                        tokenAddress,
+                        limit,
+                        offset
+                    );
+
+                    return {
+                        success: true,
+                        analyses,
+                        meta: {
+                            address: walletAddress,
+                            tokenAddress,
+                            count: analyses.length,
+                            limit,
+                            offset,
+                            retrievedAt: new Date().toISOString(),
+                        },
+                    };
+                } catch (error) {
+                    set.status = 400;
+                    return {
+                        success: false,
+                        error: error instanceof Error ? error.message : "Unknown error",
+                        meta: { retrievedAt: new Date().toISOString() },
+                    };
+                }
+            },
+            {
+                params: t.Object({
+                    walletAddress: t.String({
+                        description: "Ethereum wallet address (0x...)",
+                        pattern: "^0x[a-fA-F0-9]{40}$",
+                    }),
+                    tokenAddress: t.String({
+                        description: "ERC20 token contract address (0x...)",
+                        pattern: "^0x[a-fA-F0-9]{40}$",
+                    }),
+                }),
+                query: t.Object({
+                    limit: t.Optional(
+                        t.String({
+                            description: "Number of records (default: 10, max: 50)",
+                            pattern: "^[0-9]+$",
+                        })
+                    ),
+                    offset: t.Optional(
+                        t.String({
+                            description: "Records to skip (default: 0)",
+                            pattern: "^[0-9]+$",
+                        })
+                    ),
+                }),
             }
         )
 }
