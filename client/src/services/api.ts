@@ -66,6 +66,24 @@ export async function generateSocialPosts(
 
   return response.json();
 }
+
+/**
+ * Fetches token-specific market and behavioral analysis.
+ * Hits GET /api/address/:walletAddress/token/:tokenAddress on the backend.
+ */
+export async function analyzeToken(
+  walletAddress: string,
+  tokenAddress: string,
+  options?: { limit?: number; days?: number }
+): Promise<TokenAnalysisResponse> {
+  const url = new URL(
+    `/api/address/${walletAddress}/token/${tokenAddress}`,
+    API_BASE_URL
+  );
+
+  if (options?.limit) {
+    url.searchParams.set("limit", String(options.limit));
+  }
   if (options?.days) {
     url.searchParams.set("days", String(options.days));
   }

@@ -1,5 +1,14 @@
+import path from "node:path";
 import { defineConfig } from "prisma/config";
-import { DATABASE_URL } from "./src/constants/env.constants"
+import { loadEnvFile } from "node:process";
+
+// Prisma CLI does not auto-load .env the way `bun run` does,
+// so we load it explicitly before reading DATABASE_URL.
+try {
+  loadEnvFile(path.resolve(import.meta.dirname ?? __dirname, ".env"));
+} catch {
+  // .env may not exist in CI or production — that's fine.
+}
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -7,6 +16,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: DATABASE_URL,
+    url: process.env.DATABASE_URL,
   },
 });
