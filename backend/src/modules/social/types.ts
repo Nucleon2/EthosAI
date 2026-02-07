@@ -8,8 +8,8 @@ import type {
 /** A single generated social media post for a specific platform. */
 export type SocialPost = z.infer<typeof socialPostSchema>;
 
-/** All three platform posts returned from the generation endpoint. */
-export type SocialPostsResponse = z.infer<typeof socialPostsResponseSchema>;
+/** All three platform posts (payload) returned from the generation endpoint. */
+export type SocialPostsResult = z.infer<typeof socialPostsResponseSchema>;
 
 /** Request body for the POST /api/social/generate endpoint. */
 export type GenerateSocialPostsRequest = z.infer<
