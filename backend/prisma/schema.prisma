@@ -1,0 +1,151 @@
+// Derive AI — Prisma schema
+// Models wallet users, behavioral analyses, token analyses,
+// and Discord coaching sessions for the agentic intelligence framework.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// User — keyed by Ethereum wallet address
+// ---------------------------------------------------------------------------
+model User {
+  id             String   @id @default(cuid())
+  walletAddress  String   @unique @map("wallet_address") @db.VarChar(42)
+  discordUserId  String?  @unique @map("discord_user_id") @db.VarChar(20)
+  firstSeenAt    DateTime @default(now()) @map("first_seen_at")
+  lastActiveAt   DateTime @default(now()) @map("last_active_at")
+
+  walletAnalyses  WalletAnalysis[]
+  tokenAnalyses   TokenAnalysis[]
+  discordSessions DiscordSession[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// WalletAnalysis — stores WalletBehaviorInsight per analysis run
+//
+// Source type: walletBehaviorInsightSchema
+//   summary: string
+//   activityLevel: { level, rationale }
+//   dominantPatterns: BehaviorDetail[]
+//   tokenHabits: BehaviorDetail[]
+//   riskSignals: BehaviorDetail[]
+//   reflectionQuestions: string[]
+// ---------------------------------------------------------------------------
+model WalletAnalysis {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // High-level summary from the planner agent
+  summary String @db.Text
+
+  // Activity level classification
+  activityLevel          String @map("activity_level") @db.VarChar(20)
+  activityLevelRationale String @map("activity_level_rationale") @db.Text
+
+  // Complex arrays stored as JSON — variable-length LLM outputs
+  // Each entry: { label: string, description: string, confidence: number }
+  dominantPatterns Json @map("dominant_patterns")
+  tokenHabits      Json @map("token_habits")
+  riskSignals      Json @map("risk_signals")
+
+  // Plain string array
+  reflectionQuestions Json @map("reflection_questions")
+
+  // Metadata
+  model       String? @db.VarChar(50)
+  ethBalance  String? @map("eth_balance") @db.VarChar(78)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("wallet_analyses")
+}
+
+// ---------------------------------------------------------------------------
+// TokenAnalysis — stores TokenBehaviorInsight per user + token pair
+//
+// Source type: tokenBehaviorInsightSchema
+//   marketBrief: string
+//   technicalPatterns: { label, significance, confidence }[]
+//   newsSummary: { title, summary, category?, source?, url?, date? }[]
+//   sentiment: { overall, sources: { source, signal, detail, score }[] }
+//   transferSizeMetrics: { averageTransferSize, medianTransferSize, ... }
+//   behavioralInsights: {
+//     emotionalSignals, nudges, winningPatterns, losingPatterns,
+//     reflectionPrompts, habitCelebrations, dataGaps
+//   }
+// ---------------------------------------------------------------------------
+model TokenAnalysis {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  tokenAddress String   @map("token_address") @db.VarChar(42)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Market context summary
+  marketBrief String @map("market_brief") @db.Text
+
+  // Technical patterns — JSON array of { label, significance, confidence }
+  technicalPatterns Json @map("technical_patterns")
+
+  // News summary — JSON array of { title, summary, category?, source?, url?, date? }
+  newsSummary Json @map("news_summary")
+
+  // Sentiment — JSON object { overall, sources: [...] }
+  sentiment Json
+
+  // Transfer size metrics — JSON object with all numeric/nullable fields
+  transferSizeMetrics Json @map("transfer_size_metrics")
+
+  // Behavioral insights — JSON object with nested arrays
+  // { emotionalSignals, nudges, winningPatterns, losingPatterns,
+  //   reflectionPrompts, habitCelebrations, dataGaps }
+  behavioralInsights Json @map("behavioral_insights")
+
+  // Metadata
+  model      String? @db.VarChar(50)
+  ethBalance String? @map("eth_balance") @db.VarChar(78)
+  marketDays Int?    @map("market_days")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, tokenAddress, createdAt(sort: Desc)])
+  @@index([tokenAddress])
+  @@map("token_analyses")
+}
+
+// ---------------------------------------------------------------------------
+// DiscordSession — tracks Discord bot coaching interactions
+// Prepared for the upcoming discord-dashboard module.
+// ---------------------------------------------------------------------------
+model DiscordSession {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  discordUserId   String    @map("discord_user_id") @db.VarChar(20)
+  guildId         String?   @map("guild_id") @db.VarChar(20)
+  channelId       String?   @map("channel_id") @db.VarChar(20)
+
+  // Session lifecycle
+  startedAt       DateTime  @default(now()) @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+  status          String    @default("active") @db.VarChar(20)
+
+  // Session content — nudges delivered, topics discussed, user responses
+  nudgesDelivered Json?     @map("nudges_delivered")
+  topicsDiscussed Json?     @map("topics_discussed")
+  sessionSummary  String?   @map("session_summary") @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt(sort: Desc)])
+  @@index([discordUserId])
+  @@map("discord_sessions")
+}
