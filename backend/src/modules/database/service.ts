@@ -226,6 +226,90 @@ async function findUserByDiscordId(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Discord Sessions
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a completed Discord coaching session record.
+ */
+async function saveDiscordSession(
+  data: {
+    userId: string;
+    discordUserId: string;
+    guildId: string;
+    channelId: string;
+    startedAt: Date;
+    endedAt: Date;
+    nudgesDelivered: string[];
+    topicsDiscussed: string[];
+    sessionSummary: string;
+  },
+  client: PrismaClient = prisma
+) {
+  return client.discordSession.create({
+    data: {
+      userId: data.userId,
+      discordUserId: data.discordUserId,
+      guildId: data.guildId,
+      channelId: data.channelId,
+      startedAt: data.startedAt,
+      endedAt: data.endedAt,
+      status: "completed",
+      nudgesDelivered: data.nudgesDelivered,
+      topicsDiscussed: data.topicsDiscussed,
+      sessionSummary: data.sessionSummary,
+    },
+  });
+}
+
+/**
+ * Retrieves Discord session history for a wallet address (paginated).
+ */
+async function getDiscordSessionHistory(
+  walletAddress: string,
+  limit: number = 10,
+  offset: number = 0,
+  client: PrismaClient = prisma
+) {
+  const normalized = walletAddress.toLowerCase();
+
+  return client.discordSession.findMany({
+    where: { user: { walletAddress: normalized } },
+    orderBy: { startedAt: "desc" },
+    take: limit,
+    skip: offset,
+  });
+}
+
+/**
+ * Retrieves the most recent Discord session for a wallet address.
+ */
+async function getLatestDiscordSession(
+  walletAddress: string,
+  client: PrismaClient = prisma
+) {
+  const normalized = walletAddress.toLowerCase();
+
+  return client.discordSession.findFirst({
+    where: { user: { walletAddress: normalized } },
+    orderBy: { startedAt: "desc" },
+  });
+}
+
+/**
+ * Retrieves any currently active Discord session for a user.
+ */
+async function getActiveDiscordSession(
+  discordUserId: string,
+  client: PrismaClient = prisma
+) {
+  return client.discordSession.findFirst({
+    where: { discordUserId, status: "active" },
+    orderBy: { startedAt: "desc" },
+  });
+}
+
 /**
  * Database service — centralized data access layer.
  *
@@ -244,4 +328,8 @@ export const databaseService = {
   getWalletAnalysisHistory,
   getTokenAnalysisHistory,
   getAllRecentTokenAnalyses,
+  saveDiscordSession,
+  getDiscordSessionHistory,
+  getLatestDiscordSession,
+  getActiveDiscordSession,
 };

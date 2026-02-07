@@ -4,7 +4,7 @@ import { LlmService } from "./pipeline/llm.service";
 import { TtsService } from "./pipeline/tts.service";
 import { subscribeToUser } from "./voice/audio-receiver";
 import { playAudio, stopPlayback, destroyPlayer } from "./voice/audio-player";
-import { prisma } from "../database";
+import { databaseService } from "../database";
 
 /**
  * Represents the state of a single coaching session.
@@ -245,19 +245,16 @@ async function endSession(discordUserId: string): Promise<void> {
 
   // Persist to database
   try {
-    await prisma.discordSession.create({
-      data: {
-        userId: session.userId,
-        discordUserId: session.discordUserId,
-        guildId: session.guildId,
-        channelId: session.channelId,
-        startedAt: session.startedAt,
-        endedAt: new Date(),
-        status: "completed",
-        nudgesDelivered: session.nudgesDelivered,
-        topicsDiscussed: session.topicsDiscussed,
-        sessionSummary: summaryText,
-      },
+    await databaseService.saveDiscordSession({
+      userId: session.userId,
+      discordUserId: session.discordUserId,
+      guildId: session.guildId,
+      channelId: session.channelId,
+      startedAt: session.startedAt,
+      endedAt: new Date(),
+      nudgesDelivered: session.nudgesDelivered,
+      topicsDiscussed: session.topicsDiscussed,
+      sessionSummary: summaryText,
     });
   } catch (err) {
     console.error("Failed to save session to database:", err);
