@@ -31,11 +31,6 @@ interface TokenAnalysisHistoryProps {
   walletAddress: string;
 }
 
-/** Truncates an Ethereum address for compact display. */
-function truncateAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
 /** Formats an ISO date string to a readable short format. */
 function formatDate(iso: string): string {
   const date = new Date(iso);
