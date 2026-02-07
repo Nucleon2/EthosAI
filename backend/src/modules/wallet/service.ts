@@ -24,6 +24,14 @@ export type WalletServiceContract = {
     tokenAddress: string,
     transactionLimit?: number
   ): Promise<WalletInfo>;
+  /**
+   * Get ERC-20 token balance for a specific wallet and token contract.
+   * Returns raw balance in smallest unit (wei-equivalent).
+   */
+  getTokenBalance(
+    address: string,
+    tokenAddress: string
+  ): Promise<string>;
 };
 
 /**
@@ -70,5 +78,15 @@ export const walletService: WalletServiceContract = {
     );
 
     return walletInfoSchema.parse(walletData);
+  },
+
+  async getTokenBalance(
+    address: string,
+    tokenAddress: string
+  ): Promise<string> {
+    const validatedAddress = walletService.validateAddress(address);
+    const validatedToken = walletService.validateAddress(tokenAddress);
+
+    return adapter.getTokenBalance(validatedAddress, validatedToken);
   }
 };

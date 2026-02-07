@@ -66,11 +66,25 @@ const ethPriceResponseSchema = z.object({
 });
 
 /**
+ * In-memory cache for ETH price with 60-second TTL
+ */
+let ethPriceCache: { price: number; timestamp: number } | null = null;
+const ETH_PRICE_CACHE_TTL_MS = 60_000; // 60 seconds
+
+/**
  * Fetch the current ETH price in USD via CoinGecko simple/price endpoint.
  *
  * Returns null if the request fails so callers can degrade gracefully.
+ * Caches the result for 60 seconds to reduce API calls and latency.
  */
 export async function getEthPriceUsd(): Promise<number | null> {
+  const now = Date.now();
+  
+  // Return cached price if still valid
+  if (ethPriceCache && now - ethPriceCache.timestamp < ETH_PRICE_CACHE_TTL_MS) {
+    return ethPriceCache.price;
+  }
+
   try {
     const response = await fetchCoingecko("/simple/price", {
       ids: "ethereum",
@@ -81,7 +95,12 @@ export async function getEthPriceUsd(): Promise<number | null> {
     }
     const payload = await response.json();
     const parsed = ethPriceResponseSchema.parse(payload);
-    return parsed.ethereum.usd;
+    const price = parsed.ethereum.usd;
+    
+    // Update cache
+    ethPriceCache = { price, timestamp: now };
+    
+    return price;
   } catch {
     return null;
   }

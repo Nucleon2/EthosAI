@@ -286,7 +286,7 @@ export class EtherscanAdapter {
    */
   async getTokenBalance(
     address: EthereumAddress,
-    contractAddress: string
+    contractAddress: EthereumAddress
   ): Promise<string> {
     const response = await this.fetchFromEtherscan({
       module: "account",

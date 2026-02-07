@@ -6,7 +6,6 @@ import { analyzeTokenBehavior } from "./token-behavior-analyzer";
 import { formatEther, formatUnits } from "ethers";
 import { marketService } from "../market/service";
 import { getEthPriceUsd } from "../market/coingecko.adapter";
-import { createEtherscanAdapter } from "./adapters/etherscan.adapter";
 import { databaseService } from "../database";
 
 type HttpMappedError = {
@@ -201,13 +200,11 @@ export function createWalletRoutes(
                     const normalizedDays = Number.isNaN(parsedDays) ? 30 : parsedDays;
                     const days = Math.min(Math.max(normalizedDays, 1), 365);
 
-                    const etherscanAdapter = createEtherscanAdapter();
-
                     const [walletInfo, marketSnapshot, ethPriceUsd, rawTokenBalance] = await Promise.all([
                         service.getWalletTokenActivity(walletAddress, tokenAddress, limit),
                         marketService.buildTokenMarketSnapshot(tokenAddress, days),
                         getEthPriceUsd(),
-                        etherscanAdapter.getTokenBalance(walletAddress, tokenAddress)
+                        service.getTokenBalance(walletAddress, tokenAddress)
                             .catch(() => null)
                     ]);
 
