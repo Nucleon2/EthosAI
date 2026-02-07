@@ -24,6 +24,7 @@ import { TypingAnimation } from "@/components/ui/typing-animation";
 import { Badge } from "@/components/ui/badge";
 import { useWalletStore } from "@/stores/wallet-store";
 import { TokenAnalysisResult } from "@/features/token/components/token-analysis-result";
+import { TokenAnalysisSkeleton } from "@/features/token/components/token-analysis-skeleton";
 
 export function HomePage() {
   const {
@@ -216,15 +217,8 @@ export function HomePage() {
                     isLoading={isTokenLoading}
                   />
 
-                  {/* Loading state message */}
-                  {isTokenLoading && (
-                    <BlurFade delay={0} duration={0.3}>
-                      <p className="text-xs text-muted-foreground animate-pulse">
-                        Analyzing token market data and your behavioral
-                        patterns...
-                      </p>
-                    </BlurFade>
-                  )}
+                  {/* Loading state skeleton */}
+                  {isTokenLoading && <TokenAnalysisSkeleton />}
 
                   {/* Token error state */}
                   {tokenAnalysisStatus === "error" && tokenError && (

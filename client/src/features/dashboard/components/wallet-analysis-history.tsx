@@ -1,12 +1,11 @@
 /**
- * TokenAnalysisHistory - Lists past token analyses from the database.
+ * WalletAnalysisHistory - Lists past wallet analyses from the database.
  * Each entry is expandable to show full behavioral insights and market data.
  *
- * Uses TanStack Query for data fetching, sharing cache with useWalletHistory.
+ * Uses the useWalletHistory hook for infinite-query "load more" pagination.
  */
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   RiCoinLine,
   RiArrowDownSLine,
@@ -15,6 +14,8 @@ import {
   RiSparklingLine,
   RiLoader4Line,
   RiRefreshLine,
+  RiAlertLine,
+  RiShieldKeyholeLine,
 } from "@remixicon/react";
 import {
   Card,
@@ -27,11 +28,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BlurFade } from "@/components/ui/blur-fade";
-import { getWalletAnalysisHistory } from "@/services/api";
-import { queryKeys } from "@/lib/query-client";
-import type { WalletAnalysisRecord } from "@/types/api";
+import { useWalletHistory } from "@/hooks/use-wallet-history";
 
-interface TokenAnalysisHistoryProps {
+interface WalletAnalysisHistoryProps {
   walletAddress: string;
 }
 
@@ -46,35 +45,19 @@ function formatDate(iso: string): string {
   });
 }
 
-export function TokenAnalysisHistory({
+export function WalletAnalysisHistory({
   walletAddress,
-}: TokenAnalysisHistoryProps) {
-  const queryClient = useQueryClient();
+}: WalletAnalysisHistoryProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const query = useQuery({
-    queryKey: [...queryKeys.wallet.history(walletAddress), "component", 20],
-    queryFn: () => getWalletAnalysisHistory(walletAddress, 20, 0),
-  });
-
-  const analyses: WalletAnalysisRecord[] =
-    query.data?.success && query.data.analyses ? query.data.analyses : [];
-
-  const isLoading = query.isLoading || query.isFetching;
-
-  const error = query.error
-    ? query.error instanceof Error
-      ? query.error.message
-      : "An unexpected error occurred"
-    : query.data && !query.data.success
-      ? (query.data.error ?? "Failed to load history")
-      : null;
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.wallet.history(walletAddress),
-    });
-  };
+  const {
+    analyses,
+    isLoading,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  } = useWalletHistory(walletAddress);
 
   const toggleExpand = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -92,7 +75,7 @@ export function TokenAnalysisHistory({
             variant="ghost"
             size="sm"
             className="h-7 gap-1 text-[10px]"
-            onClick={handleRefresh}
+            onClick={refresh}
             disabled={isLoading}
           >
             {isLoading ? (
@@ -190,7 +173,60 @@ export function TokenAnalysisHistory({
                                 <span className="font-medium text-foreground">
                                   {p.label}
                                 </span>{" "}
-                                — {p.description}
+                                &mdash; {p.description}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {/* Token Habits */}
+                        {analysis.tokenHabits.length > 0 ? (
+                          <div className="space-y-1">
+                            <span className="text-[11px] font-medium text-foreground">
+                              Token Habits
+                            </span>
+                            {analysis.tokenHabits.map((h, j) => (
+                              <div
+                                key={j}
+                                className="text-[11px] text-muted-foreground pl-2 border-l-2 border-blue-500/20"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-foreground">
+                                    {h.label}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {Math.round(h.confidence * 100)}%
+                                  </span>
+                                </div>
+                                <span>{h.description}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {/* Risk Signals */}
+                        {analysis.riskSignals.length > 0 ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <RiAlertLine className="size-3 text-amber-500" />
+                              <span className="text-[11px] font-medium text-foreground">
+                                Risk Signals
+                              </span>
+                            </div>
+                            {analysis.riskSignals.map((r, j) => (
+                              <div
+                                key={j}
+                                className="text-[11px] text-muted-foreground pl-2 border-l-2 border-amber-500/20"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-foreground">
+                                    {r.label}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {Math.round(r.confidence * 100)}%
+                                  </span>
+                                </div>
+                                <span>{r.description}</span>
                               </div>
                             ))}
                           </div>
@@ -212,18 +248,49 @@ export function TokenAnalysisHistory({
                           </div>
                         ) : null}
 
-                        {analysis.ethBalance ? (
-                          <p className="text-[10px] text-muted-foreground/60">
-                            ETH balance at time of analysis:{" "}
-                            {analysis.ethBalance} ETH
-                          </p>
-                        ) : null}
+                        {/* Footer: ETH balance & model */}
+                        <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                          {analysis.ethBalance ? (
+                            <p className="text-[10px] text-muted-foreground/60">
+                              ETH balance at time of analysis:{" "}
+                              {analysis.ethBalance} ETH
+                            </p>
+                          ) : (
+                            <span />
+                          )}
+                          {analysis.model ? (
+                            <div className="flex items-center gap-1">
+                              <RiShieldKeyholeLine className="size-2.5 text-muted-foreground/40" />
+                              <span className="text-[10px] text-muted-foreground/40">
+                                {analysis.model}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
                   </div>
                 </BlurFade>
               );
             })}
+
+            {/* Load more button */}
+            {hasMore && (
+              <div className="pt-2 flex justify-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[10px] text-muted-foreground"
+                  onClick={loadMore}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <RiLoader4Line className="size-3 animate-spin mr-1" />
+                  ) : null}
+                  Load more
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

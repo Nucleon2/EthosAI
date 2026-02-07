@@ -17,7 +17,7 @@ import { BlurFade } from "@/components/ui/blur-fade";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useWalletStore } from "@/stores/wallet-store";
 import { WalletInsightCard } from "./components/wallet-insight-card";
-import { TokenAnalysisHistory } from "./components/token-analysis-history";
+import { WalletAnalysisHistory } from "./components/wallet-analysis-history";
 import { CoachingSessions } from "./components/coaching-sessions";
 import { DiscordStatusIndicator } from "./components/discord-status-indicator";
 
@@ -109,7 +109,7 @@ export function DashboardPage() {
         <TabsContent value="history">
           <BlurFade delay={0.15} duration={0.4}>
             <div className="pt-4">
-              <TokenAnalysisHistory walletAddress={walletAddress} />
+              <WalletAnalysisHistory walletAddress={walletAddress} />
             </div>
           </BlurFade>
         </TabsContent>
