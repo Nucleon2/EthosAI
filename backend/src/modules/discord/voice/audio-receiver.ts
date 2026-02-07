@@ -78,8 +78,14 @@ export function subscribeToUser(
       onEnd(userId);
     });
 
-    opusStream.on("error", () => {
+    opusStream.on("error", (err) => {
+      console.error(
+        `[Audio] Stream error for ${userId}:`,
+        err
+      );
       activeStream = null;
+      // Notify session manager so STT can flush pending text
+      onEnd(userId);
     });
   };
 

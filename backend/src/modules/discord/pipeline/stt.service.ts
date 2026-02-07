@@ -37,10 +37,17 @@ export class SttService {
   private isOpen = false;
 
   /**
-   * Accumulates the latest interim transcript so we can flush it
-   * as final when UtteranceEnd fires or the audio stream ends.
+   * Accumulates finalized segments (is_final=true) for the current
+   * utterance. These are confirmed transcriptions that won't change.
    */
-  private lastInterim = "";
+  private finalizedSegments: string[] = [];
+
+  /**
+   * Stores the latest interim hypothesis for the current segment.
+   * This gets replaced on each interim update and cleared when the
+   * segment is finalized.
+   */
+  private currentInterim = "";
 
   /**
    * Tracks whether we already emitted a final transcript for the
@@ -67,7 +74,8 @@ export class SttService {
 
     this.isStopped = false;
     this.isOpen = false;
-    this.lastInterim = "";
+    this.finalizedSegments = [];
+    this.currentInterim = "";
     this.finalEmitted = false;
     const deepgram = createClient(apiKey);
 
@@ -112,30 +120,37 @@ export class SttService {
           if (!transcript) return;
 
           if (data.is_final) {
-            // Deepgram confirmed this segment -- accumulate it
+            // Deepgram confirmed this segment
             console.log(
               `[STT] Segment final: "${transcript}"`
             );
+            
+            // Add to finalized segments
+            this.finalizedSegments.push(transcript);
+            this.currentInterim = "";
+
             // If speech_final is also set, treat as end of turn
             if (data.speech_final) {
-              this.emitFinal(transcript);
+              this.emitFinalFromSegments();
             } else {
-              // Accumulate finalized segments
-              this.lastInterim = this.lastInterim
-                ? `${this.lastInterim} ${transcript}`
-                : transcript;
-              this.onTranscript(transcript, false);
+              // Send interim with accumulated finalized text
+              this.onTranscript(
+                this.finalizedSegments.join(" "),
+                false
+              );
             }
           } else {
-            // Interim result -- update the buffer
+            // Interim result -- replace current hypothesis
             console.log(
               `[STT] Transcript (interim): "${transcript}"`
             );
-            // Keep track of latest interim for this segment
-            this.lastInterim = this.lastInterim
-              ? `${this.lastInterim} ${transcript}`
+            this.currentInterim = transcript;
+            
+            // Send combined finalized + current interim
+            const combined = this.finalizedSegments.length > 0
+              ? `${this.finalizedSegments.join(" ")} ${transcript}`
               : transcript;
-            this.onTranscript(transcript, false);
+            this.onTranscript(combined, false);
           }
         }
       );
@@ -146,7 +161,7 @@ export class SttService {
         LiveTranscriptionEvents.UtteranceEnd,
         () => {
           console.log("[STT] UtteranceEnd event received");
-          this.emitFinal(this.lastInterim);
+          this.emitFinalFromSegments();
         }
       );
 
@@ -177,16 +192,24 @@ export class SttService {
   }
 
   /**
-   * Emits a final transcript and resets the accumulation state.
-   * Guards against duplicate emissions.
+   * Emits a final transcript from accumulated segments and resets
+   * the accumulation state. Guards against duplicate emissions.
    */
-  private emitFinal(text: string): void {
+  private emitFinalFromSegments(): void {
     if (this.finalEmitted) return;
-    const finalText = (text || this.lastInterim).trim();
+
+    // Combine finalized segments with any remaining interim
+    const parts: string[] = [...this.finalizedSegments];
+    if (this.currentInterim.trim()) {
+      parts.push(this.currentInterim);
+    }
+
+    const finalText = parts.join(" ").trim();
     if (!finalText) return;
 
     this.finalEmitted = true;
-    this.lastInterim = "";
+    this.finalizedSegments = [];
+    this.currentInterim = "";
     console.log(`[STT] Transcript (FINAL): "${finalText}"`);
     this.onTranscript(finalText, true);
 
@@ -202,11 +225,15 @@ export class SttService {
    * finalized, flush it now.
    */
   flushPending(): void {
-    if (this.lastInterim.trim() && !this.finalEmitted) {
+    const hasPending =
+      this.finalizedSegments.length > 0 ||
+      this.currentInterim.trim();
+    
+    if (hasPending && !this.finalEmitted) {
       console.log(
         "[STT] Flushing pending transcript on stream end"
       );
-      this.emitFinal(this.lastInterim);
+      this.emitFinalFromSegments();
     }
   }
 

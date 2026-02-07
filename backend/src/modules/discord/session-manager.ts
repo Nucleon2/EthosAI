@@ -28,7 +28,7 @@ interface CoachingSession {
   tts: TtsService | null;
   unsubscribeAudio: (() => void) | null;
   isProcessing: boolean;
-  interrupted: boolean;
+  currentTurnId: number;
   utteranceBuffer: string;
   topicsDiscussed: string[];
   nudgesDelivered: string[];
@@ -91,7 +91,7 @@ async function startSession(
     tts: null,
     unsubscribeAudio: null,
     isProcessing: false,
-    interrupted: false,
+    currentTurnId: 0,
     utteranceBuffer: "",
     topicsDiscussed: [],
     nudgesDelivered: [],
@@ -144,16 +144,20 @@ async function startSession(
 
   // Send an initial greeting via TTS
   try {
+    session.currentTurnId++;
+    session.isProcessing = true;
     await processLlmResponse(
       session,
       "The user just joined the coaching session. " +
         "Give a brief, warm greeting and reference one " +
-        "interesting pattern from their wallet data."
+        "interesting pattern from their wallet data.",
+      session.currentTurnId
     );
     console.log("[Session] Initial greeting delivered");
   } catch (err) {
     console.error("[Session] Initial greeting failed:", err);
     // Session is still usable even if greeting fails
+    session.isProcessing = false;
   }
 }
 
@@ -161,7 +165,8 @@ async function startSession(
  * Handles incoming transcripts from Deepgram.
  *
  * Accumulates interim results and triggers the LLM pipeline
- * on final transcripts.
+ * on final transcripts. Uses turn IDs to safely cancel
+ * in-flight pipelines when interrupted.
  */
 function handleTranscript(
   session: CoachingSession,
@@ -179,39 +184,38 @@ function handleTranscript(
 
   if (!finalText.trim()) return;
 
-  console.log(
-    `[Pipeline] User said: "${finalText}"`
-  );
+  console.log(`[Pipeline] User said: "${finalText}"`);
   session.topicsDiscussed.push(finalText);
 
-  // If already processing, mark as interrupted so the current
-  // pipeline knows to stop, then queue this utterance
+  // Increment turn ID to cancel any in-flight pipeline
+  session.currentTurnId++;
+  const turnId = session.currentTurnId;
+
+  // If already processing, stop playback/TTS immediately
+  // The old pipeline will see its turnId is stale and exit
   if (session.isProcessing) {
     console.log(
-      "[Pipeline] Interrupting current response"
+      `[Pipeline] Interrupting turn ${turnId - 1}, ` +
+        `starting turn ${turnId}`
     );
-    session.interrupted = true;
     stopPlayback(session.guildId);
     if (session.tts) {
       session.tts.stop();
       session.tts = null;
     }
-    // Wait briefly for the current pipeline to notice and exit,
-    // then process the new utterance
-    setTimeout(() => {
-      session.isProcessing = false;
-      session.interrupted = false;
-      processLlmResponse(session, finalText).catch((err) => {
-        console.error("[Pipeline] Error after interrupt:", err);
-        session.isProcessing = false;
-      });
-    }, 100);
-    return;
   }
 
-  processLlmResponse(session, finalText).catch((err) => {
-    console.error("[Pipeline] Error processing response:", err);
-    session.isProcessing = false;
+  // Start the new pipeline with this turn ID
+  session.isProcessing = true;
+  processLlmResponse(session, finalText, turnId).catch((err) => {
+    console.error(
+      `[Pipeline] Error in turn ${turnId}:`,
+      err
+    );
+    // Only clear isProcessing if this is still the current turn
+    if (session.currentTurnId === turnId) {
+      session.isProcessing = false;
+    }
   });
 }
 
@@ -219,17 +223,20 @@ function handleTranscript(
  * Runs the LLM -> TTS -> playback pipeline for a single turn.
  *
  * Collects all TTS audio before playing to avoid choppy output.
- * Checks the `interrupted` flag between stages so we can bail
- * out quickly when the user speaks over the bot.
+ * Checks the `turnId` throughout so cancelled pipelines exit cleanly.
  */
 async function processLlmResponse(
   session: CoachingSession,
-  text: string
+  text: string,
+  turnId: number
 ): Promise<void> {
-  session.isProcessing = true;
-  session.interrupted = false;
+  console.log(`[Pipeline] Starting turn ${turnId}: LLM -> TTS -> playback`);
 
-  console.log("[Pipeline] Starting LLM -> TTS -> playback");
+  // Check if already cancelled before we start
+  if (session.currentTurnId !== turnId) {
+    console.log(`[Pipeline] Turn ${turnId} cancelled before start`);
+    return;
+  }
 
   // Collect all audio chunks, play when done
   const audioChunks: Buffer[] = [];
@@ -251,19 +258,21 @@ async function processLlmResponse(
 
   try {
     await tts.start();
-    console.log("[Pipeline] TTS connected");
+    console.log(`[Pipeline] Turn ${turnId}: TTS connected`);
   } catch (err) {
-    console.error("[Pipeline] Failed to start TTS:", err);
+    console.error(`[Pipeline] Turn ${turnId}: Failed to start TTS:`, err);
     session.tts = null;
-    session.isProcessing = false;
+    if (session.currentTurnId === turnId) {
+      session.isProcessing = false;
+    }
     return;
   }
 
-  // Bail if interrupted while TTS was connecting
-  if (session.interrupted) {
+  // Bail if cancelled while TTS was connecting
+  if (session.currentTurnId !== turnId) {
+    console.log(`[Pipeline] Turn ${turnId} cancelled during TTS init`);
     tts.stop();
     session.tts = null;
-    session.isProcessing = false;
     return;
   }
 
@@ -273,8 +282,8 @@ async function processLlmResponse(
     await session.llm.respond(
       text,
       (chunk) => {
-        // Bail mid-stream if interrupted
-        if (session.interrupted) return;
+        // Bail mid-stream if cancelled
+        if (session.currentTurnId !== turnId) return;
 
         sentenceBuffer += chunk;
         // Send to TTS in sentence-sized chunks
@@ -291,7 +300,7 @@ async function processLlmResponse(
         }
       },
       (fullResponse) => {
-        if (session.interrupted) return;
+        if (session.currentTurnId !== turnId) return;
         // Flush remaining text
         if (sentenceBuffer.trim()) {
           tts.sendText(sentenceBuffer);
@@ -299,38 +308,40 @@ async function processLlmResponse(
         tts.flush();
         session.nudgesDelivered.push(fullResponse);
         console.log(
-          `[LLM] Response: "${fullResponse.slice(0, 80)}..."`
+          `[LLM] Turn ${turnId} response: "${fullResponse.slice(0, 80)}..."`
         );
       }
     );
   } catch (err) {
-    console.error("[Pipeline] LLM response failed:", err);
+    console.error(`[Pipeline] Turn ${turnId}: LLM response failed:`, err);
     tts.stop();
     session.tts = null;
-    session.isProcessing = false;
+    if (session.currentTurnId === turnId) {
+      session.isProcessing = false;
+    }
     return;
   }
 
-  // Bail if interrupted during LLM streaming
-  if (session.interrupted) {
+  // Bail if cancelled during LLM streaming
+  if (session.currentTurnId !== turnId) {
+    console.log(`[Pipeline] Turn ${turnId} cancelled during LLM`);
     tts.stop();
     session.tts = null;
-    session.isProcessing = false;
     return;
   }
 
   // Wait for TTS to finish generating audio
   await ttsDonePromise;
   console.log(
-    `[Pipeline] TTS done, ${audioChunks.length} chunks ` +
+    `[Pipeline] Turn ${turnId}: TTS done, ${audioChunks.length} chunks ` +
       `(${audioChunks.reduce((s, c) => s + c.length, 0)} bytes)`
   );
 
-  // Bail if interrupted during TTS
-  if (session.interrupted) {
+  // Bail if cancelled during TTS
+  if (session.currentTurnId !== turnId) {
+    console.log(`[Pipeline] Turn ${turnId} cancelled during TTS generation`);
     tts.stop();
     session.tts = null;
-    session.isProcessing = false;
     return;
   }
 
@@ -339,24 +350,34 @@ async function processLlmResponse(
     const fullAudio = Buffer.concat(audioChunks);
     try {
       console.log(
-        `[Pipeline] Playing ${fullAudio.length} bytes of audio`
+        `[Pipeline] Turn ${turnId}: Playing ${fullAudio.length} bytes of audio`
       );
       await playAudio(
         session.connection,
         fullAudio,
         session.guildId
       );
-      console.log("[Pipeline] Playback finished");
+      console.log(`[Pipeline] Turn ${turnId}: Playback finished`);
     } catch (err) {
-      console.error("[Pipeline] Audio playback error:", err);
+      console.error(`[Pipeline] Turn ${turnId}: Audio playback error:`, err);
     }
   } else {
-    console.warn("[Pipeline] No audio chunks received from TTS");
+    console.warn(`[Pipeline] Turn ${turnId}: No audio chunks received from TTS`);
   }
 
   tts.stop();
   session.tts = null;
-  session.isProcessing = false;
+
+  // Only clear isProcessing if this is still the current turn
+  if (session.currentTurnId === turnId) {
+    session.isProcessing = false;
+    console.log(`[Pipeline] Turn ${turnId} complete`);
+  } else {
+    console.log(
+      `[Pipeline] Turn ${turnId} finished but was superseded by ` +
+        `turn ${session.currentTurnId}`
+    );
+  }
 }
 
 /**
