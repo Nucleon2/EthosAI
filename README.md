@@ -1,8 +1,8 @@
-# Derive
+# EthosAI
 
 Agentic market intelligence and behavioral awareness for Ethereum wallets.
 
-Derive analyzes on-chain wallet activity, correlates it with market data, and produces explainable behavioral insights using AI. It includes a Discord voice coaching bot that delivers real-time, personalized market awareness through conversation.
+Ethos analyzes on-chain wallet activity, correlates it with market data, and produces explainable behavioral insights using AI. It includes a Discord voice coaching bot that delivers real-time, personalized market awareness through conversation.
 
 **This is not a trading bot.** It never outputs buy/sell signals, price targets, or portfolio advice.
 
