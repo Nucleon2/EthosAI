@@ -176,6 +176,25 @@ async function getTokenAnalysisHistory(
 }
 
 /**
+ * Retrieves the most recent token analyses across ALL tokens
+ * for a given wallet address — useful for building coaching
+ * context where we want a cross-token behavioral picture.
+ */
+async function getAllRecentTokenAnalyses(
+  walletAddress: string,
+  limit: number = 5,
+  client: PrismaClient = prisma
+) {
+  const normalized = walletAddress.toLowerCase();
+
+  return client.tokenAnalysis.findMany({
+    where: { user: { walletAddress: normalized } },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+}
+
+/**
  * Database service — centralized data access layer.
  *
  * All persistence logic for the agentic intelligence framework
@@ -190,4 +209,5 @@ export const databaseService = {
   getLatestTokenAnalysis,
   getWalletAnalysisHistory,
   getTokenAnalysisHistory,
+  getAllRecentTokenAnalyses,
 };

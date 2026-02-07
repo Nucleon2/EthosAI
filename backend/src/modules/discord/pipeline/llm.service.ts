@@ -37,9 +37,8 @@ export class LlmService {
     const walletAnalysis = await databaseService.getLatestWalletAnalysis(
       this.walletAddress
     );
-    const tokenAnalyses = await databaseService.getTokenAnalysisHistory(
+    const tokenAnalyses = await databaseService.getAllRecentTokenAnalyses(
       this.walletAddress,
-      "", // empty string — we want all tokens, but the function requires it
       5
     );
 
