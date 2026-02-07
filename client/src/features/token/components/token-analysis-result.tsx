@@ -1,7 +1,7 @@
 /**
- * TokenAnalysisResult - Displays a brief summary of the token analysis.
- * Shows the market brief, key behavioral nudges, and a share button
- * that opens the social media post generation modal.
+ * TokenAnalysisResult - Displays a comprehensive summary of the token
+ * analysis including market brief, balance info, behavioral insights,
+ * technical patterns, sentiment sources, and news.
  */
 
 import { useState } from "react";
@@ -11,6 +11,13 @@ import {
   RiShareLine,
   RiWallet3Line,
   RiCoinLine,
+  RiTrophyLine,
+  RiAlertLine,
+  RiEmotionLine,
+  RiBarChartLine,
+  RiNewspaperLine,
+  RiErrorWarningLine,
+  RiThumbUpLine,
 } from "@remixicon/react";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { Badge } from "@/components/ui/badge";
@@ -187,6 +194,244 @@ export function TokenAnalysisResult({
                       &ldquo;{prompt}&rdquo;
                     </li>
                   ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Winning Patterns */}
+          {analysis.behavioralInsights.winningPatterns.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <RiTrophyLine className="size-3.5 text-green-500" />
+                <span className="text-xs font-medium text-foreground">
+                  Winning Patterns
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {analysis.behavioralInsights.winningPatterns.map((pattern, i) => (
+                  <li
+                    key={i}
+                    className="text-xs leading-relaxed text-muted-foreground pl-3 border-l-2 border-green-500/40"
+                  >
+                    {pattern}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Habit Celebrations */}
+          {analysis.behavioralInsights.habitCelebrations.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <RiThumbUpLine className="size-3.5 text-green-500" />
+                <span className="text-xs font-medium text-foreground">
+                  Habit Celebrations
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {analysis.behavioralInsights.habitCelebrations.map((celebration, i) => (
+                  <li
+                    key={i}
+                    className="text-xs leading-relaxed text-green-700 dark:text-green-400 pl-3 border-l-2 border-green-500/40 bg-green-500/5 py-1 pr-2 rounded-r"
+                  >
+                    {celebration}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Losing Patterns */}
+          {analysis.behavioralInsights.losingPatterns.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <RiAlertLine className="size-3.5 text-amber-500" />
+                <span className="text-xs font-medium text-foreground">
+                  Patterns to Watch
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {analysis.behavioralInsights.losingPatterns.map((pattern, i) => (
+                  <li
+                    key={i}
+                    className="text-xs leading-relaxed text-muted-foreground pl-3 border-l-2 border-amber-500/40"
+                  >
+                    {pattern}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Emotional Signals */}
+          {analysis.behavioralInsights.emotionalSignals.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <RiEmotionLine className="size-3.5 text-violet-500" />
+                <span className="text-xs font-medium text-foreground">
+                  Emotional Signals
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {analysis.behavioralInsights.emotionalSignals.map((signal, i) => (
+                  <li key={i} className="space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-foreground">
+                        {signal.label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {Math.round(signal.confidence * 100)}%
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted-foreground pl-3 border-l-2 border-violet-500/30">
+                      {signal.description}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Technical Patterns */}
+          {analysis.technicalPatterns.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <RiBarChartLine className="size-3.5 text-blue-500" />
+                <span className="text-xs font-medium text-foreground">
+                  Technical Patterns
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {analysis.technicalPatterns.map((pattern, i) => (
+                  <li key={i} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-foreground">
+                        {pattern.label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {Math.round(pattern.confidence * 100)}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {pattern.significance}
+                    </p>
+                    {/* Confidence bar */}
+                    <div className="h-1 w-full rounded-full bg-muted">
+                      <div
+                        className="h-1 rounded-full bg-blue-500/60"
+                        style={{ width: `${Math.round(pattern.confidence * 100)}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Sentiment Sources */}
+          {analysis.sentiment.sources.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-foreground">
+                Sentiment Sources
+              </span>
+              <ul className="space-y-1.5">
+                {analysis.sentiment.sources.map((src, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start justify-between gap-2 text-xs"
+                  >
+                    <div className="flex-1">
+                      <span className="font-medium text-foreground">
+                        {src.source}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {" "}&mdash; {src.detail}
+                      </span>
+                    </div>
+                    <Badge
+                      variant={
+                        src.signal === "positive"
+                          ? "default"
+                          : src.signal === "negative"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                      className="text-[10px] capitalize shrink-0"
+                    >
+                      {src.signal}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* News Summary */}
+          {analysis.newsSummary.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <RiNewspaperLine className="size-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-foreground">
+                  News & Updates
+                </span>
+              </div>
+              <ul className="space-y-2.5">
+                {analysis.newsSummary.map((item, i) => (
+                  <li key={i} className="space-y-0.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-medium text-foreground leading-snug">
+                        {item.url ? (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline underline-offset-2 hover:text-primary transition-colors"
+                          >
+                            {item.title}
+                          </a>
+                        ) : (
+                          item.title
+                        )}
+                      </span>
+                      {item.category && (
+                        <Badge variant="outline" className="text-[10px] shrink-0">
+                          {item.category}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {item.summary}
+                    </p>
+                    {(item.source || item.date) && (
+                      <p className="text-[10px] text-muted-foreground/60">
+                        {[item.source, item.date].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Data Gaps */}
+          {analysis.behavioralInsights.dataGaps.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <RiErrorWarningLine className="size-3.5 text-muted-foreground/60" />
+                <span className="text-xs font-medium text-muted-foreground">
+                  Data Gaps
+                </span>
+              </div>
+              <ul className="space-y-1">
+                {analysis.behavioralInsights.dataGaps.map((gap, i) => (
+                  <li
+                    key={i}
+                    className="text-[11px] leading-relaxed text-muted-foreground/70 pl-3 border-l border-border"
+                  >
+                    {gap}
+                  </li>
+                ))}
               </ul>
             </div>
           )}
