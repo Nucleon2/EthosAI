@@ -3,6 +3,9 @@
  * Returns live status including online state, username, and guild count.
  * Exposes startBot / stopBot actions that auto-refresh status after toggling.
  *
+ * While the bot is in the "connecting" state the poll interval drops to
+ * 2 seconds so the UI updates quickly once the gateway handshake completes.
+ *
  * Uses TanStack Query for automatic polling, caching, and deduplication.
  */
 
@@ -24,13 +27,17 @@ interface UseDiscordStatusResult {
   status: DiscordStatusResponse | null;
   isLoading: boolean;
   isToggling: boolean;
+  isConnecting: boolean;
   error: string | null;
   refresh: () => void;
   startBot: () => Promise<void>;
   stopBot: () => Promise<void>;
 }
 
+/** Normal polling cadence. */
 const POLL_INTERVAL_MS = 10_000;
+/** Faster cadence while the bot is connecting to the Discord gateway. */
+const CONNECTING_POLL_INTERVAL_MS = 2_000;
 
 export function useDiscordStatus(): UseDiscordStatusResult {
   const queryClient = useQueryClient();
@@ -38,7 +45,13 @@ export function useDiscordStatus(): UseDiscordStatusResult {
   const statusQuery = useQuery({
     queryKey: queryKeys.discord.status(),
     queryFn: getDiscordStatus,
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: (query) => {
+      const data = query.state.data as DiscordStatusResponse | undefined;
+      if (data?.status === "connecting") {
+        return CONNECTING_POLL_INTERVAL_MS;
+      }
+      return POLL_INTERVAL_MS;
+    },
   });
 
   const startMutation = useMutation({
@@ -77,6 +90,8 @@ export function useDiscordStatus(): UseDiscordStatusResult {
   const isToggling =
     startMutation.isPending || stopMutation.isPending;
 
+  const isConnecting = statusQuery.data?.status === "connecting";
+
   /** Extract error message from query error. */
   const error = statusQuery.error
     ? statusQuery.error instanceof Error
@@ -88,6 +103,7 @@ export function useDiscordStatus(): UseDiscordStatusResult {
     status: statusQuery.data ?? null,
     isLoading: statusQuery.isLoading,
     isToggling,
+    isConnecting,
     error,
     refresh,
     startBot,

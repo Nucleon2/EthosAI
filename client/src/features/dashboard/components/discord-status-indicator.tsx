@@ -2,7 +2,9 @@
  * DiscordStatusIndicator - Live polling indicator showing
  * whether the Discord coaching bot is online, with a toggle
  * button to start or stop the bot.
- * Polls every 10 seconds via the useDiscordStatus hook.
+ *
+ * Polls every 10 seconds normally, or every 2 seconds while
+ * the bot is in the "connecting" state.
  */
 
 import { RiDiscordLine, RiLoader4Line } from "@remixicon/react";
@@ -14,8 +16,15 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export function DiscordStatusIndicator() {
-  const { status, isLoading, isToggling, error, startBot, stopBot } =
-    useDiscordStatus();
+  const {
+    status,
+    isLoading,
+    isToggling,
+    isConnecting,
+    error,
+    startBot,
+    stopBot,
+  } = useDiscordStatus();
 
   async function handleToggle() {
     try {
@@ -24,7 +33,7 @@ export function DiscordStatusIndicator() {
         toast.success("Discord bot stopped");
       } else {
         await startBot();
-        toast.success("Discord bot started");
+        toast.success("Discord bot is connecting...");
       }
     } catch (err) {
       toast.error(
@@ -50,28 +59,49 @@ export function DiscordStatusIndicator() {
 
   if (!status) return null;
 
+  const botState = status.status;
+
   return (
     <div className="flex items-center gap-2">
       <RiDiscordLine
         className={cn(
           "size-4",
-          status.online ? "text-[#5865F2]" : "text-muted-foreground"
+          botState === "online"
+            ? "text-[#5865F2]"
+            : botState === "connecting"
+              ? "text-yellow-500"
+              : "text-muted-foreground"
         )}
       />
       <div className="flex items-center gap-1.5">
-        {/* Pulsing dot for online status */}
+        {/* Status dot */}
         <span
           className={cn(
             "inline-block size-1.5 rounded-full",
-            status.online
+            botState === "online"
               ? "bg-green-500 animate-pulse"
-              : "bg-muted-foreground/40"
+              : botState === "connecting"
+                ? "bg-yellow-500 animate-pulse"
+                : botState === "error"
+                  ? "bg-red-500"
+                  : "bg-muted-foreground/40"
           )}
         />
         <span className="text-[11px] text-foreground font-medium">
-          {status.online ? "Bot Online" : "Bot Offline"}
+          {botState === "online"
+            ? "Bot Online"
+            : botState === "connecting"
+              ? "Connecting..."
+              : botState === "error"
+                ? "Connection Failed"
+                : "Bot Offline"}
         </span>
       </div>
+      {botState === "error" && status.error && (
+        <span className="text-[10px] text-red-500 max-w-[180px] truncate">
+          {status.error}
+        </span>
+      )}
       {status.online && status.username && (
         <Badge variant="outline" className="text-[10px] font-normal">
           {status.username}
@@ -86,10 +116,10 @@ export function DiscordStatusIndicator() {
         variant={status.online ? "outline" : "default"}
         size="xs"
         onClick={handleToggle}
-        disabled={isToggling}
+        disabled={isToggling || isConnecting}
         className="ml-1"
       >
-        {isToggling ? (
+        {isToggling || isConnecting ? (
           <RiLoader4Line className="size-3 animate-spin" />
         ) : status.online ? (
           "Stop Bot"
