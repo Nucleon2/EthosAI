@@ -16,6 +16,7 @@ import { sessionManager } from "./session-manager";
  */
 export function createDiscordRoutes() {
   return new Elysia({ prefix: "/discord" })
+<<<<<<< HEAD
     .post("/start", ({ set }) => {
       const current = getBotStatus();
       if (current.status === "online") {
@@ -42,6 +43,27 @@ export function createDiscordRoutes() {
       };
     })
     .post("/stop", async ({ set }) => {
+=======
+    .post("/start", async ({ set }) => {
+>>>>>>> 0d172703ece4a7adfff29ae3c7eada60bdc897d9
+      try {
+        await stopBot();
+        return { status: "ok", message: "Discord bot stopped" };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+<<<<<<< HEAD
+        console.error("[discord] Failed to stop bot:", error);
+=======
+        console.error("[discord] Failed to start bot:", error);
+>>>>>>> 0d172703ece4a7adfff29ae3c7eada60bdc897d9
+        set.status = 500;
+        return { status: "error", message };
+      }
+    })
+<<<<<<< HEAD
+=======
+    .post("/stop", async ({ set }) => {
       try {
         await stopBot();
         return { status: "ok", message: "Discord bot stopped" };
@@ -53,6 +75,7 @@ export function createDiscordRoutes() {
         return { status: "error", message };
       }
     })
+>>>>>>> 0d172703ece4a7adfff29ae3c7eada60bdc897d9
     .get("/status", () => {
       const client = getClient();
       const { status, error } = getBotStatus();

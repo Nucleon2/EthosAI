@@ -57,7 +57,11 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
   }
 }
 
+/** Maximum time (ms) to wait for the Discord gateway login. */
+const LOGIN_TIMEOUT_MS = 25_000;
+
 /**
+<<<<<<< HEAD
  * Kicks off the Discord bot login in the background.
  *
  * Returns immediately — the actual gateway handshake happens
@@ -109,6 +113,13 @@ export function requestBotStart(): void {
  * where we want to log success/failure synchronously in the
  * startup sequence. HTTP routes should use {@link requestBotStart}
  * instead.
+=======
+ * Starts the Discord bot — logs in, registers event handlers.
+ * Idempotent: calling multiple times returns the existing client.
+ *
+ * If login fails, the client is cleaned up so subsequent calls
+ * can retry instead of returning a broken instance.
+>>>>>>> 0d172703ece4a7adfff29ae3c7eada60bdc897d9
  */
 export async function startBot(): Promise<Client> {
   if (client && botStatus === "online") return client;
@@ -118,6 +129,7 @@ export async function startBot(): Promise<Client> {
     throw new Error("DISCORD_BOT_TOKEN environment variable is not set");
   }
 
+<<<<<<< HEAD
   botStatus = "connecting";
   lastError = null;
 
@@ -144,6 +156,36 @@ export async function startBot(): Promise<Client> {
       reject(error);
     });
   });
+=======
+  const newClient = createClient();
+
+  newClient.on(Events.InteractionCreate, handleInteraction);
+
+  newClient.once(Events.ClientReady, (c) => {
+    console.log(`[discord] Bot logged in as ${c.user.tag}`);
+  });
+
+  try {
+    await Promise.race([
+      newClient.login(token),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Discord login timed out after 25s")),
+          LOGIN_TIMEOUT_MS
+        )
+      ),
+    ]);
+  } catch (error) {
+    // Clean up the failed client so retries create a fresh one
+    newClient.removeAllListeners();
+    newClient.destroy();
+    console.error("[discord] Bot login failed:", error);
+    throw error;
+  }
+
+  client = newClient;
+  return client;
+>>>>>>> 0d172703ece4a7adfff29ae3c7eada60bdc897d9
 }
 
 /**
