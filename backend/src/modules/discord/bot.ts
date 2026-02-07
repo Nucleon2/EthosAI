@@ -63,6 +63,10 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
  * Returns immediately — the actual gateway handshake happens
  * asynchronously. Use {@link getBotStatus} to check progress.
  *
+ * A 60-second timeout guards against the gateway hanging; if
+ * the ClientReady event hasn't fired by then the attempt is
+ * treated as a failure so the user can retry.
+ *
  * Idempotent: calling while already connecting or online is a no-op.
  */
 export function requestBotStart(): void {
@@ -80,12 +84,24 @@ export function requestBotStart(): void {
 
   botStatus = "connecting";
   lastError = null;
+  console.log("[discord] Initiating bot login...");
 
   const newClient = createClient();
+
+  /** Abort the attempt after 60 s if ClientReady never fires. */
+  const timeout = setTimeout(() => {
+    if (botStatus !== "connecting") return;
+    newClient.removeAllListeners();
+    newClient.destroy();
+    botStatus = "error";
+    lastError = "Discord login timed out after 60 s";
+    console.error(`[discord] ${lastError}`);
+  }, 60_000);
 
   newClient.on(Events.InteractionCreate, handleInteraction);
 
   newClient.once(Events.ClientReady, (c) => {
+    clearTimeout(timeout);
     client = newClient;
     botStatus = "online";
     lastError = null;
@@ -93,6 +109,7 @@ export function requestBotStart(): void {
   });
 
   newClient.login(token).catch((error) => {
+    clearTimeout(timeout);
     newClient.removeAllListeners();
     newClient.destroy();
     botStatus = "error";

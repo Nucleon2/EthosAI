@@ -68,12 +68,16 @@ new Elysia()
   }))
   .use(openapi({ enabled: NODE_ENV === "development" }))
   .use(databasePlugin)
-  .onError(({ code, error, set }) => {
-    console.error(`[server] Unhandled error (${code}):`, error);
+  .onError(({ code, error, request, set }) => {
     if (code === "NOT_FOUND") {
       set.status = 404;
       return { error: "Not found" };
     }
+    const url = new URL(request.url);
+    console.error(
+      `[server] Unhandled error (${code}) on ${url.pathname}:`,
+      error
+    );
     set.status = 500;
     return {
       error: "Internal server error",
