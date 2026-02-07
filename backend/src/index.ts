@@ -30,7 +30,10 @@ new Elysia()
       .use(createWalletRoutes())
       .use(createDiscordRoutes())
       .use(createSocialRoutes())
-  ).listen(PORT);
+  ).listen({
+    port: PORT,
+    hostname: "0.0.0.0"
+  });
 
 console.log(
   `Derive AI server running at http://localhost:${PORT}`
