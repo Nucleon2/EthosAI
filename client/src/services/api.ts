@@ -137,7 +137,7 @@ export async function getWalletAnalysisHistory(
     const errorBody = await response.json().catch(() => null);
     throw new Error(
       errorBody?.error ??
-        `Wallet history fetch failed (${response.status})`
+      `Wallet history fetch failed (${response.status})`
     );
   }
 
@@ -167,7 +167,7 @@ export async function getTokenAnalysisHistory(
     const errorBody = await response.json().catch(() => null);
     throw new Error(
       errorBody?.error ??
-        `Token history fetch failed (${response.status})`
+      `Token history fetch failed (${response.status})`
     );
   }
 
@@ -228,7 +228,13 @@ export async function stopDiscordBot(): Promise<DiscordBotActionResponse> {
     );
   }
 
-  return response.json();
+  const body = (await response.json()) as DiscordBotActionResponse;
+  if ((body as any)?.status === "error") {
+    throw new Error(
+      (body as any)?.message ?? "Failed to stop Discord bot (logical error)"
+    );
+  }
+  return body;
 }
 
 /**
@@ -253,7 +259,7 @@ export async function getDiscordSessions(
     const errorBody = await response.json().catch(() => null);
     throw new Error(
       errorBody?.error ??
-        `Discord sessions fetch failed (${response.status})`
+      `Discord sessions fetch failed (${response.status})`
     );
   }
 
@@ -279,7 +285,7 @@ export async function getLatestDiscordSession(
     const errorBody = await response.json().catch(() => null);
     throw new Error(
       errorBody?.error ??
-        `Latest session fetch failed (${response.status})`
+      `Latest session fetch failed (${response.status})`
     );
   }
 
