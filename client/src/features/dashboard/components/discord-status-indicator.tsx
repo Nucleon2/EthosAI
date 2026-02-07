@@ -1,17 +1,37 @@
 /**
  * DiscordStatusIndicator - Live polling indicator showing
- * whether the Discord coaching bot is online.
+ * whether the Discord coaching bot is online, with a toggle
+ * button to start or stop the bot.
  * Polls every 10 seconds via the useDiscordStatus hook.
  */
 
-import { RiDiscordLine } from "@remixicon/react";
+import { RiDiscordLine, RiLoader4Line } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDiscordStatus } from "@/hooks/use-discord-status";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export function DiscordStatusIndicator() {
-  const { status, isLoading, error } = useDiscordStatus();
+  const { status, isLoading, isToggling, error, startBot, stopBot } =
+    useDiscordStatus();
+
+  async function handleToggle() {
+    try {
+      if (status?.online) {
+        await stopBot();
+        toast.success("Discord bot stopped");
+      } else {
+        await startBot();
+        toast.success("Discord bot started");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to toggle bot"
+      );
+    }
+  }
 
   if (isLoading) {
     return <Skeleton className="h-7 w-36" />;
@@ -62,6 +82,21 @@ export function DiscordStatusIndicator() {
           {status.guilds} {status.guilds === 1 ? "server" : "servers"}
         </span>
       )}
+      <Button
+        variant={status.online ? "outline" : "default"}
+        size="xs"
+        onClick={handleToggle}
+        disabled={isToggling}
+        className="ml-1"
+      >
+        {isToggling ? (
+          <RiLoader4Line className="size-3 animate-spin" />
+        ) : status.online ? (
+          "Stop Bot"
+        ) : (
+          "Start Bot"
+        )}
+      </Button>
     </div>
   );
 }

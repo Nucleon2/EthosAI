@@ -264,6 +264,12 @@ export interface DiscordLatestSessionResponse {
   meta: { retrievedAt: string };
 }
 
+/** Response from POST /api/discord/start and POST /api/discord/stop */
+export interface DiscordBotActionResponse {
+  status: "ok" | "error";
+  message: string;
+}
+
 /** Linked user info from GET /api/discord/user/:discordUserId */
 export interface DiscordUserResponse {
   success: boolean;

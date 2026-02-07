@@ -11,6 +11,7 @@ import type {
   WalletAnalysisHistoryResponse,
   TokenAnalysisHistoryResponse,
   DiscordStatusResponse,
+  DiscordBotActionResponse,
   DiscordSessionsResponse,
   DiscordLatestSessionResponse,
 } from "@/types/api";
@@ -188,6 +189,42 @@ export async function getDiscordStatus(): Promise<DiscordStatusResponse> {
   if (!response.ok) {
     throw new Error(
       `Discord status fetch failed (${response.status})`
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Starts the Discord coaching bot.
+ * Hits POST /api/discord/start.
+ */
+export async function startDiscordBot(): Promise<DiscordBotActionResponse> {
+  const url = new URL("/api/discord/start", API_BASE_URL);
+  const response = await fetch(url.toString(), { method: "POST" });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.message ?? `Failed to start Discord bot (${response.status})`
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Stops the Discord coaching bot.
+ * Hits POST /api/discord/stop.
+ */
+export async function stopDiscordBot(): Promise<DiscordBotActionResponse> {
+  const url = new URL("/api/discord/stop", API_BASE_URL);
+  const response = await fetch(url.toString(), { method: "POST" });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.message ?? `Failed to stop Discord bot (${response.status})`
     );
   }
 
