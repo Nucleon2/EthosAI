@@ -63,9 +63,23 @@ new Elysia()
   .use(cors({
     origin: isOriginAllowed,
     methods: ["POST", "GET", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   }))
   .use(openapi({ enabled: NODE_ENV === "development" }))
   .use(databasePlugin)
+  .onError(({ code, error, set }) => {
+    console.error(`[server] Unhandled error (${code}):`, error);
+    if (code === "NOT_FOUND") {
+      set.status = 404;
+      return { error: "Not found" };
+    }
+    set.status = 500;
+    return {
+      error: "Internal server error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  })
   .onBeforeHandle(({ request, set }) => {
     // Only rate-limit wallet analysis endpoints, not health checks
     const url = new URL(request.url);
