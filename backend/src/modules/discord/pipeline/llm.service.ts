@@ -1,7 +1,8 @@
 import { buildCoachSystemPrompt } from "../coach-prompt";
 import { databaseService } from "../../database";
 
-const DEFAULT_DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
+const DEFAULT_DEEPSEEK_URL =
+  "https://api.deepseek.com/v1/chat/completions";
 const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
 
 type DeepseekStreamChunk = {
@@ -12,10 +13,13 @@ type DeepseekStreamChunk = {
 };
 
 /**
- * Behavioral coach LLM service — sends user utterances to DeepSeek
+ * Behavioral coach LLM service -- sends user utterances to DeepSeek
  * with wallet context from the database.
  *
  * Streams the response back via a callback for real-time TTS piping.
+ *
+ * Optionally accepts a token address to focus the coaching session
+ * on a specific token's behavioral analysis.
  */
 export class LlmService {
   private conversationHistory: Array<{
@@ -23,29 +27,56 @@ export class LlmService {
     content: string;
   }> = [];
   private walletAddress: string;
+  private tokenAddress?: string;
   private systemPromptLoaded = false;
 
-  constructor(walletAddress: string) {
+  constructor(walletAddress: string, tokenAddress?: string) {
     this.walletAddress = walletAddress;
+    this.tokenAddress = tokenAddress;
   }
 
   /**
    * Loads wallet context from DB and builds the system prompt.
+   * If a token address was provided, includes that token's
+   * analysis as the primary focus.
+   *
    * Called once at session start.
    */
   async initialize(): Promise<void> {
-    const walletAnalysis = await databaseService.getLatestWalletAnalysis(
-      this.walletAddress
-    );
-    const tokenAnalyses = await databaseService.getAllRecentTokenAnalyses(
-      this.walletAddress,
-      5
-    );
+    const walletAnalysis =
+      await databaseService.getLatestWalletAnalysis(
+        this.walletAddress
+      );
+
+    // If a specific token was requested, prioritize its analysis
+    let tokenAnalyses;
+    if (this.tokenAddress) {
+      const focusedAnalysis =
+        await databaseService.getLatestTokenAnalysis(
+          this.walletAddress,
+          this.tokenAddress
+        );
+      const otherAnalyses =
+        await databaseService.getAllRecentTokenAnalyses(
+          this.walletAddress,
+          4
+        );
+      tokenAnalyses = focusedAnalysis
+        ? [focusedAnalysis, ...otherAnalyses]
+        : otherAnalyses;
+    } else {
+      tokenAnalyses =
+        await databaseService.getAllRecentTokenAnalyses(
+          this.walletAddress,
+          5
+        );
+    }
 
     const systemPrompt = buildCoachSystemPrompt(
       this.walletAddress,
       walletAnalysis,
-      tokenAnalyses
+      tokenAnalyses,
+      this.tokenAddress
     );
 
     this.conversationHistory = [
@@ -72,10 +103,15 @@ export class LlmService {
 
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) {
-      throw new Error("DEEPSEEK_API_KEY environment variable is not set");
+      throw new Error(
+        "DEEPSEEK_API_KEY environment variable is not set"
+      );
     }
 
-    this.conversationHistory.push({ role: "user", content: text });
+    this.conversationHistory.push({
+      role: "user",
+      content: text,
+    });
 
     const response = await fetch(
       process.env.DEEPSEEK_API_URL || DEFAULT_DEEPSEEK_URL,
@@ -86,7 +122,8 @@ export class LlmService {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: process.env.DEEPSEEK_MODEL || DEFAULT_DEEPSEEK_MODEL,
+          model:
+            process.env.DEEPSEEK_MODEL || DEFAULT_DEEPSEEK_MODEL,
           messages: this.conversationHistory,
           temperature: 0.6,
           max_tokens: 300,
@@ -96,6 +133,8 @@ export class LlmService {
     );
 
     if (!response.ok || !response.body) {
+      // Remove the user message we just added since LLM failed
+      this.conversationHistory.pop();
       throw new Error(
         `DeepSeek API error: ${response.status} ${response.statusText}`
       );
@@ -121,8 +160,10 @@ export class LlmService {
         if (data === "[DONE]") continue;
 
         try {
-          const parsed = JSON.parse(data) as DeepseekStreamChunk;
-          const content = parsed.choices?.[0]?.delta?.content;
+          const parsed =
+            JSON.parse(data) as DeepseekStreamChunk;
+          const content =
+            parsed.choices?.[0]?.delta?.content;
           if (content) {
             fullResponse += content;
             onChunk(content);
@@ -153,6 +194,8 @@ export class LlmService {
    * Returns the conversation history (for session summary).
    */
   getHistory(): Array<{ role: string; content: string }> {
-    return this.conversationHistory.filter((m) => m.role !== "system");
+    return this.conversationHistory.filter(
+      (m) => m.role !== "system"
+    );
   }
 }

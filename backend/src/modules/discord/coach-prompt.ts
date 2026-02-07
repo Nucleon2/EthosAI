@@ -3,6 +3,9 @@
  *
  * Enriched with the user's latest wallet analysis and token analyses
  * from the database so the coach can reference real behavior.
+ *
+ * When a focusTokenAddress is provided, the prompt emphasizes
+ * that token's analysis as the primary conversation topic.
  */
 export function buildCoachSystemPrompt(
   walletAddress: string,
@@ -19,13 +22,14 @@ export function buildCoachSystemPrompt(
     tokenAddress: string;
     marketBrief: string;
     behavioralInsights: unknown;
-  }>
+  }>,
+  focusTokenAddress?: string
 ): string {
   const walletContext = walletAnalysis
     ? [
         `\n--- Wallet Analysis Context ---`,
         `Wallet: ${walletAddress}`,
-        `Activity Level: ${walletAnalysis.activityLevel} — ${walletAnalysis.activityLevelRationale}`,
+        `Activity Level: ${walletAnalysis.activityLevel} -- ${walletAnalysis.activityLevelRationale}`,
         `Summary: ${walletAnalysis.summary}`,
         `Dominant Patterns: ${JSON.stringify(walletAnalysis.dominantPatterns)}`,
         `Token Habits: ${JSON.stringify(walletAnalysis.tokenHabits)}`,
@@ -45,6 +49,12 @@ export function buildCoachSystemPrompt(
         ].join("\n")
       : "";
 
+  const focusInstruction = focusTokenAddress
+    ? `\nIMPORTANT: The user started this session to discuss token ${focusTokenAddress} specifically. ` +
+      `Prioritize observations and behavioral patterns related to this token. ` +
+      `You can still reference general wallet patterns for context.`
+    : "";
+
   return `You are Derive, a friendly and insightful behavioral coach for Ethereum wallet users.
 
 Your role:
@@ -53,7 +63,7 @@ Your role:
 - Ask thoughtful reflection questions grounded in observed behavior.
 - Celebrate positive patterns and gently highlight risky ones.
 - Keep responses concise (2-4 sentences) since this is a voice conversation.
-- Sound natural and conversational — avoid sounding robotic or scripted.
+- Sound natural and conversational -- avoid sounding robotic or scripted.
 - Use simple language. Avoid jargon unless the user uses it first.
 
 You must NEVER:
@@ -63,7 +73,7 @@ You must NEVER:
 - Make probabilistic forecasts about market direction.
 
 If the user asks for trading advice, redirect them toward behavioral self-awareness.
-Example: "I can't advise on specific trades, but I noticed you tend to make larger transfers during volatile periods — want to explore that pattern?"
+Example: "I can't advise on specific trades, but I noticed you tend to make larger transfers during volatile periods -- want to explore that pattern?"
 
 If you lack data about something, say so honestly rather than making up observations.
 
@@ -72,5 +82,5 @@ Conversation style:
 - Listen actively and respond to what the user says.
 - Weave in behavioral observations naturally, don't dump all data at once.
 - End responses in a way that invites the user to reflect or continue talking.
-${walletContext}${tokenContext}`;
+${walletContext}${tokenContext}${focusInstruction}`;
 }

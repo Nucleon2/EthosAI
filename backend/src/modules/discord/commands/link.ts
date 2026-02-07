@@ -17,11 +17,16 @@ export async function handleLink(
 
   if (!ETH_ADDRESS_RE.test(walletAddress)) {
     await interaction.reply({
-      content: "Invalid Ethereum address. Must be `0x` followed by 40 hex characters.",
+      content:
+        "Invalid Ethereum address. Must be `0x` followed by " +
+        "40 hex characters.",
       flags: 64,
     });
     return;
   }
+
+  // Acknowledge immediately so Discord doesn't time out
+  await interaction.deferReply({ flags: 64 });
 
   try {
     await databaseService.linkDiscordUser(
@@ -29,15 +34,14 @@ export async function handleLink(
       interaction.user.id
     );
 
-    await interaction.reply({
-      content: `Wallet \`${walletAddress}\` linked to your Discord account.`,
-      flags: 64,
-    });
+    await interaction.editReply(
+      `Wallet \`${walletAddress}\` linked to your Discord account.`
+    );
   } catch (error) {
-    console.error("Failed to link wallet:", error);
-    await interaction.reply({
-      content: "Failed to link wallet. Please try again.",
-      flags: 64,
-    });
+    console.error("[Link] Failed to link wallet:", error);
+    await interaction.editReply(
+      "Failed to link wallet. The database may be unavailable — " +
+        "please try again later."
+    );
   }
 }
