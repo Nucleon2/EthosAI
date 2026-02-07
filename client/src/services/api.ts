@@ -222,7 +222,15 @@ export async function getTokenAnalysisHistory(
  */
 export async function getDiscordStatus(): Promise<DiscordStatusResponse> {
   const url = new URL("/api/discord/status", API_BASE_URL);
-  const response = await fetch(url.toString());
+
+  let response: Response;
+  try {
+    response = await fetch(url.toString());
+  } catch (networkError) {
+    throw new Error(
+      "Could not reach the server. Check your connection or try again later."
+    );
+  }
 
   if (!response.ok) {
     throw new Error(
@@ -239,7 +247,15 @@ export async function getDiscordStatus(): Promise<DiscordStatusResponse> {
  */
 export async function startDiscordBot(): Promise<DiscordBotActionResponse> {
   const url = new URL("/api/discord/start", API_BASE_URL);
-  const response = await fetch(url.toString(), { method: "POST" });
+
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), { method: "POST" });
+  } catch (networkError) {
+    throw new Error(
+      "Could not reach the server. Check your connection or try again later."
+    );
+  }
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
@@ -248,13 +264,7 @@ export async function startDiscordBot(): Promise<DiscordBotActionResponse> {
     );
   }
 
-  const body = (await response.json()) as DiscordBotActionResponse;
-  if ((body as any)?.status === "error") {
-    throw new Error(
-      (body as any)?.message ?? "Failed to start Discord bot (logical error)"
-    );
-  }
-  return body;
+  return response.json();
 }
 
 /**
@@ -263,7 +273,15 @@ export async function startDiscordBot(): Promise<DiscordBotActionResponse> {
  */
 export async function stopDiscordBot(): Promise<DiscordBotActionResponse> {
   const url = new URL("/api/discord/stop", API_BASE_URL);
-  const response = await fetch(url.toString(), { method: "POST" });
+
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), { method: "POST" });
+  } catch (networkError) {
+    throw new Error(
+      "Could not reach the server. Check your connection or try again later."
+    );
+  }
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
@@ -272,13 +290,7 @@ export async function stopDiscordBot(): Promise<DiscordBotActionResponse> {
     );
   }
 
-  const body = (await response.json()) as DiscordBotActionResponse;
-  if ((body as any)?.status === "error") {
-    throw new Error(
-      (body as any)?.message ?? "Failed to stop Discord bot (logical error)"
-    );
-  }
-  return body;
+  return response.json();
 }
 
 /**
