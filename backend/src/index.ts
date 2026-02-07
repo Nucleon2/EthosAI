@@ -12,9 +12,16 @@ import {
   NODE_ENV,
 } from "./constants/env.constants";
 import openapi from "@elysiajs/openapi";
+import { RateLimiter } from "./utils/rate-limiter";
 
 
 const PORT = Number(process.env.PORT ?? 3000);
+
+// Allow 10 analysis requests per minute per IP address
+const apiRateLimiter = new RateLimiter({
+  maxRequests: 10,
+  windowMs: 60_000,
+});
 const allowedOrigins = new Set([CLIENT_URL, ...CLIENT_URLS]);
 
 function isVercelOrigin(origin: string): boolean {
@@ -59,6 +66,30 @@ new Elysia()
   }))
   .use(openapi({ enabled: NODE_ENV === "development" }))
   .use(databasePlugin)
+  .onBeforeHandle(({ request, set }) => {
+    // Only rate-limit wallet analysis endpoints, not health checks
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith("/api/address")) {
+      return;
+    }
+
+    const forwarded = request.headers.get("x-forwarded-for");
+    const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
+    const result = apiRateLimiter.check(ip);
+
+    if (!result.allowed) {
+      set.status = 429;
+      set.headers["retry-after"] = String(result.retryAfterSeconds);
+      return {
+        success: false,
+        error: "Too many requests. Please try again later.",
+        retryAfterSeconds: result.retryAfterSeconds,
+      };
+    }
+
+    set.headers["x-ratelimit-remaining"] = String(result.remaining);
+    return;
+  })
   .get("/api/ping", () => {
     return {
       pong: true,
