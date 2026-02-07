@@ -7,6 +7,57 @@ import { formatEther } from "ethers";
 import { marketService } from "../market/service";
 import { databaseService } from "../database";
 
+type HttpMappedError = {
+    status: number;
+    message: string;
+};
+
+function mapRouteError(error: unknown): HttpMappedError {
+    if (!(error instanceof Error)) {
+        return {
+            status: 500,
+            message: "Unexpected internal error"
+        };
+    }
+
+    const message = error.message;
+
+    if (
+        message.includes("Invalid Ethereum address") ||
+        message.includes("Expected property") ||
+        message.includes("validation")
+    ) {
+        return {
+            status: 400,
+            message
+        };
+    }
+
+    if (message.includes("rate limit")) {
+        return {
+            status: 429,
+            message: `Upstream provider rate limit: ${message}`
+        };
+    }
+
+    if (
+        message.includes("Etherscan API") ||
+        message.includes("fetch failed") ||
+        message.includes("ENOTFOUND") ||
+        message.includes("ECONNRESET")
+    ) {
+        return {
+            status: 502,
+            message: `Upstream provider error: ${message}`
+        };
+    }
+
+    return {
+        status: 500,
+        message
+    };
+}
+
 /**
  * Wallet routes for Ethereum address analysis
  * 
@@ -93,10 +144,11 @@ export function createWalletRoutes(
                         }
                     };
                 } catch (error) {
-                    set.status = 400;
+                    const mappedError = mapRouteError(error);
+                    set.status = mappedError.status;
                     return {
                         success: false,
-                        error: error instanceof Error ? error.message : "Unknown error",
+                        error: mappedError.message,
                         meta: {
                             retrievedAt: new Date().toISOString()
                         }
@@ -203,10 +255,11 @@ export function createWalletRoutes(
                         }
                     };
                 } catch (error) {
-                    set.status = 400;
+                    const mappedError = mapRouteError(error);
+                    set.status = mappedError.status;
                     return {
                         success: false,
-                        error: error instanceof Error ? error.message : "Unknown error",
+                        error: mappedError.message,
                         meta: {
                             retrievedAt: new Date().toISOString()
                         }
@@ -279,10 +332,11 @@ export function createWalletRoutes(
                         },
                     };
                 } catch (error) {
-                    set.status = 400;
+                    const mappedError = mapRouteError(error);
+                    set.status = mappedError.status;
                     return {
                         success: false,
-                        error: error instanceof Error ? error.message : "Unknown error",
+                        error: mappedError.message,
                         meta: { retrievedAt: new Date().toISOString() },
                     };
                 }
@@ -351,10 +405,11 @@ export function createWalletRoutes(
                         },
                     };
                 } catch (error) {
-                    set.status = 400;
+                    const mappedError = mapRouteError(error);
+                    set.status = mappedError.status;
                     return {
                         success: false,
-                        error: error instanceof Error ? error.message : "Unknown error",
+                        error: mappedError.message,
                         meta: { retrievedAt: new Date().toISOString() },
                     };
                 }

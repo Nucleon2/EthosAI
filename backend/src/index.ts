@@ -5,16 +5,56 @@ import { createSocialRoutes } from "./modules/social";
 import { databasePlugin } from "./modules/database";
 import { startBot } from "./modules/discord/bot";
 import cors from "@elysiajs/cors";
-import { CLIENT_URL, NODE_ENV } from "./constants/env.constants";
+import {
+  ALLOW_VERCEL_PREVIEW_ORIGINS,
+  CLIENT_URL,
+  CLIENT_URLS,
+  NODE_ENV,
+} from "./constants/env.constants";
 import openapi from "@elysiajs/openapi";
 
 
 const PORT = Number(process.env.PORT ?? 3000);
+const allowedOrigins = new Set([CLIENT_URL, ...CLIENT_URLS]);
+
+function isVercelOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return url.protocol === "https:" && url.hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+}
+
+function isOriginAllowedValue(origin?: string): boolean {
+  if (!origin) {
+    return true;
+  }
+
+  if (allowedOrigins.has(origin)) {
+    return true;
+  }
+
+  if (ALLOW_VERCEL_PREVIEW_ORIGINS && isVercelOrigin(origin)) {
+    return true;
+  }
+
+  if (NODE_ENV !== "production" && origin.startsWith("http://localhost:")) {
+    return true;
+  }
+
+  return false;
+}
+
+function isOriginAllowed(request: Request): boolean {
+  const origin = request.headers.get("origin") ?? undefined;
+  return isOriginAllowedValue(origin);
+}
 
 new Elysia()
   .use(cors({
-    origin: [CLIENT_URL],
-    methods: ["POST", "GET", "PATCH", "DELETE"]
+    origin: isOriginAllowed,
+    methods: ["POST", "GET", "PATCH", "DELETE", "OPTIONS"],
   }))
   .use(openapi({ enabled: NODE_ENV === "development" }))
   .use(databasePlugin)
