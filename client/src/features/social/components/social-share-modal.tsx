@@ -2,9 +2,12 @@
  * SocialShareModal - A modal that displays AI-generated social media posts
  * for Threads, X (Twitter), and LinkedIn. Users can copy post text and
  * navigate to each platform to paste and publish.
+ *
+ * Uses TanStack Query useMutation for the generation request.
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import {
   RiCloseLine,
@@ -22,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { generateSocialPosts } from "@/services/api";
-import type { TokenAnalysis, SocialPostsResult } from "@/types/api";
+import type { TokenAnalysis } from "@/types/api";
 
 interface SocialShareModalProps {
   open: boolean;
@@ -60,8 +63,6 @@ const PLATFORMS = [
   },
 ] as const;
 
-type GenerationStatus = "idle" | "loading" | "success" | "error";
-
 export function SocialShareModal({
   open,
   onOpenChange,
@@ -69,65 +70,56 @@ export function SocialShareModal({
   tokenAddress,
   tokenSymbol,
 }: SocialShareModalProps) {
-  const [status, setStatus] = useState<GenerationStatus>("idle");
-  const [posts, setPosts] = useState<SocialPostsResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
+  const [copiedPlatform, setCopiedPlatform] = useState<string | null>(
+    null
+  );
   const copyTimeoutRef = useRef<number | null>(null);
 
-  /** Generate posts when the modal opens. */
-  const generate = useCallback(async () => {
-    setStatus("loading");
-    setError(null);
-    setPosts(null);
+  const mutation = useMutation({
+    mutationFn: () =>
+      generateSocialPosts(tokenAnalysis, tokenAddress, tokenSymbol),
+  });
 
-    try {
-      const response = await generateSocialPosts(
-        tokenAnalysis,
-        tokenAddress,
-        tokenSymbol
-      );
+  /** Derive status from mutation for readability in JSX. */
+  const status = mutation.status === "idle"
+    ? "idle"
+    : mutation.status === "pending"
+      ? "loading"
+      : mutation.status;
+  const posts =
+    mutation.data?.success && mutation.data.posts
+      ? mutation.data.posts
+      : null;
+  const error = mutation.error
+    ? mutation.error instanceof Error
+      ? mutation.error.message
+      : "An unexpected error occurred"
+    : mutation.data && !mutation.data.success
+      ? (mutation.data.error ?? "Failed to generate posts")
+      : null;
 
-      if (response.success && response.posts) {
-        setPosts(response.posts);
-        setStatus("success");
-      } else {
-        setError(response.error ?? "Failed to generate posts");
-        setStatus("error");
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred"
-      );
-      setStatus("error");
-    }
-  }, [tokenAnalysis, tokenAddress, tokenSymbol]);
-
-  /** Trigger generation when modal opens for the first time or re-opens. */
+  /** Trigger generation when modal opens. */
   useEffect(() => {
-    if (open && status === "idle") {
-      generate();
+    if (open && mutation.isIdle) {
+      mutation.mutate();
     }
-  }, [open, status, generate]);
+  }, [open, mutation.isIdle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Reset state when modal closes. */
   useEffect(() => {
     if (!open) {
-      // Clear any pending copy timeout
       if (copyTimeoutRef.current !== null) {
         clearTimeout(copyTimeoutRef.current);
         copyTimeoutRef.current = null;
       }
-      
+
       const timer = setTimeout(() => {
-        setStatus("idle");
-        setPosts(null);
-        setError(null);
+        mutation.reset();
         setCopiedPlatform(null);
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Copy post text to clipboard with brief visual feedback. */
   const handleCopy = useCallback(
@@ -135,12 +127,11 @@ export function SocialShareModal({
       try {
         await navigator.clipboard.writeText(text);
         setCopiedPlatform(platform);
-        
-        // Clear any existing timeout before setting a new one
+
         if (copyTimeoutRef.current !== null) {
           clearTimeout(copyTimeoutRef.current);
         }
-        
+
         copyTimeoutRef.current = window.setTimeout(() => {
           setCopiedPlatform(null);
           copyTimeoutRef.current = null;
@@ -191,7 +182,7 @@ export function SocialShareModal({
           {/* Content */}
           <div className="p-4 space-y-4">
             {/* Loading state */}
-            {status === "loading" && (
+            {status === "loading" ? (
               <BlurFade delay={0} duration={0.3}>
                 <div className="flex flex-col items-center gap-3 py-8">
                   <RiLoader4Line className="size-6 text-primary animate-spin" />
@@ -200,10 +191,10 @@ export function SocialShareModal({
                   </p>
                 </div>
               </BlurFade>
-            )}
+            ) : null}
 
             {/* Error state */}
-            {status === "error" && error && (
+            {status === "error" && error ? (
               <BlurFade delay={0} duration={0.3}>
                 <div className="flex flex-col items-center gap-3 py-6">
                   <div className="flex items-center gap-2 text-destructive">
@@ -213,16 +204,16 @@ export function SocialShareModal({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={generate}
+                    onClick={() => mutation.mutate()}
                   >
                     Try again
                   </Button>
                 </div>
               </BlurFade>
-            )}
+            ) : null}
 
             {/* Success state: show all three platform posts */}
-            {status === "success" && posts && (
+            {status === "success" && posts ? (
               <>
                 <p className="text-xs text-muted-foreground">
                   Copy the text and post it on your favorite platform.
@@ -307,7 +298,7 @@ export function SocialShareModal({
                   );
                 })}
               </>
-            )}
+            ) : null}
           </div>
 
           {/* Footer */}

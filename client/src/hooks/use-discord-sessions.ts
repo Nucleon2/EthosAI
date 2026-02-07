@@ -1,10 +1,17 @@
 /**
  * Hook for fetching Discord coaching session history.
  * Returns paginated past sessions for a given wallet address.
+ *
+ * Uses TanStack Query's useInfiniteQuery for "load more" pagination.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import {
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { getDiscordSessions } from "@/services/api";
+import { queryKeys } from "@/lib/query-client";
 import type { DiscordSession } from "@/types/api";
 
 interface UseDiscordSessionsResult {
@@ -21,64 +28,65 @@ const PAGE_SIZE = 10;
 export function useDiscordSessions(
   walletAddress: string | null
 ): UseDiscordSessionsResult {
-  const [sessions, setSessions] = useState<DiscordSession[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchPage = useCallback(
-    async (pageOffset: number, append: boolean) => {
-      if (!walletAddress) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await getDiscordSessions(
-          walletAddress,
-          PAGE_SIZE,
-          pageOffset
-        );
-
-        if (response.success && response.sessions) {
-          setSessions((prev) =>
-            append ? [...prev, ...response.sessions!] : response.sessions!
-          );
-          setHasMore(response.sessions.length === PAGE_SIZE);
-        } else {
-          setError(response.error ?? "Failed to load sessions");
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "An unexpected error occurred"
-        );
-      } finally {
-        setIsLoading(false);
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.discord.sessions(walletAddress ?? ""),
+    queryFn: ({ pageParam }) =>
+      getDiscordSessions(walletAddress!, PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (
+        !lastPage.success ||
+        !lastPage.sessions ||
+        lastPage.sessions.length < PAGE_SIZE
+      ) {
+        return undefined;
       }
+      return lastPageParam + PAGE_SIZE;
     },
-    [walletAddress]
-  );
+    enabled: walletAddress !== null,
+  });
 
-  useEffect(() => {
-    setSessions([]);
-    setOffset(0);
-    setHasMore(true);
-    fetchPage(0, false);
-  }, [fetchPage]);
+  /** Flatten all pages into a single array of sessions. */
+  const sessions =
+    query.data?.pages.flatMap((page) =>
+      page.success && page.sessions ? page.sessions : []
+    ) ?? [];
 
+  /** Derive hasMore from whether a next page param exists. */
+  const hasMore = query.hasNextPage;
+
+  /** Extract error from the query or the response body. */
+  const firstErrorPage = query.data?.pages.find((p) => !p.success);
+  const error = query.error
+    ? query.error instanceof Error
+      ? query.error.message
+      : "An unexpected error occurred"
+    : firstErrorPage
+      ? (firstErrorPage.error ?? "Failed to load sessions")
+      : null;
+
+  /** Load next page of results. */
   const loadMore = useCallback(() => {
-    const nextOffset = offset + PAGE_SIZE;
-    setOffset(nextOffset);
-    fetchPage(nextOffset, true);
-  }, [offset, fetchPage]);
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      query.fetchNextPage();
+    }
+  }, [query]);
 
+  /** Refresh from the beginning. */
   const refresh = useCallback(() => {
-    setSessions([]);
-    setOffset(0);
-    setHasMore(true);
-    fetchPage(0, false);
-  }, [fetchPage]);
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.discord.sessions(walletAddress ?? ""),
+    });
+  }, [queryClient, walletAddress]);
 
-  return { sessions, isLoading, error, hasMore, loadMore, refresh };
+  return {
+    sessions,
+    isLoading: query.isLoading,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  };
 }

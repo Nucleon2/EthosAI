@@ -1,10 +1,18 @@
 /**
  * Hook for fetching wallet analysis history from the database.
  * Returns paginated past analyses without triggering new ones.
+ *
+ * Uses TanStack Query's useInfiniteQuery for cursor-based
+ * "load more" pagination with automatic caching.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import {
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { getWalletAnalysisHistory } from "@/services/api";
+import { queryKeys } from "@/lib/query-client";
 import type { WalletAnalysisRecord } from "@/types/api";
 
 interface UseWalletHistoryResult {
@@ -21,67 +29,66 @@ const PAGE_SIZE = 10;
 export function useWalletHistory(
   walletAddress: string | null
 ): UseWalletHistoryResult {
-  const [analyses, setAnalyses] = useState<WalletAnalysisRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchPage = useCallback(
-    async (pageOffset: number, append: boolean) => {
-      if (!walletAddress) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await getWalletAnalysisHistory(
-          walletAddress,
-          PAGE_SIZE,
-          pageOffset
-        );
-
-        if (response.success && response.analyses) {
-          setAnalyses((prev) =>
-            append ? [...prev, ...response.analyses!] : response.analyses!
-          );
-          setHasMore(response.analyses.length === PAGE_SIZE);
-        } else {
-          setError(response.error ?? "Failed to load wallet history");
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "An unexpected error occurred"
-        );
-      } finally {
-        setIsLoading(false);
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.wallet.history(walletAddress ?? ""),
+    queryFn: ({ pageParam }) =>
+      getWalletAnalysisHistory(walletAddress!, PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (
+        !lastPage.success ||
+        !lastPage.analyses ||
+        lastPage.analyses.length < PAGE_SIZE
+      ) {
+        return undefined;
       }
+      return lastPageParam + PAGE_SIZE;
     },
-    [walletAddress]
-  );
+    enabled: walletAddress !== null,
+  });
 
-  /** Initial fetch on mount or when wallet changes. */
-  useEffect(() => {
-    setAnalyses([]);
-    setOffset(0);
-    setHasMore(true);
-    fetchPage(0, false);
-  }, [fetchPage]);
+  /** Flatten all pages into a single array of analyses. */
+  const analyses =
+    query.data?.pages.flatMap((page) =>
+      page.success && page.analyses ? page.analyses : []
+    ) ?? [];
+
+  /** Derive hasMore from whether a next page param exists. */
+  const hasMore = query.hasNextPage;
+
+  /** Extract error from the query or the response body. */
+  const firstErrorPage = query.data?.pages.find((p) => !p.success);
+  const error = query.error
+    ? query.error instanceof Error
+      ? query.error.message
+      : "An unexpected error occurred"
+    : firstErrorPage
+      ? (firstErrorPage.error ?? "Failed to load wallet history")
+      : null;
 
   /** Load next page of results. */
   const loadMore = useCallback(() => {
-    const nextOffset = offset + PAGE_SIZE;
-    setOffset(nextOffset);
-    fetchPage(nextOffset, true);
-  }, [offset, fetchPage]);
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      query.fetchNextPage();
+    }
+  }, [query]);
 
   /** Refresh from the beginning. */
   const refresh = useCallback(() => {
-    setAnalyses([]);
-    setOffset(0);
-    setHasMore(true);
-    fetchPage(0, false);
-  }, [fetchPage]);
+    queryClient.resetQueries({
+      queryKey: queryKeys.wallet.history(walletAddress ?? ""),
+      exact: true,
+    });
+  }, [queryClient, walletAddress]);
 
-  return { analyses, isLoading, error, hasMore, loadMore, refresh };
+  return {
+    analyses,
+    isLoading: query.isLoading,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  };
 }
