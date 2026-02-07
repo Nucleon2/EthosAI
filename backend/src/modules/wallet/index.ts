@@ -240,4 +240,150 @@ export function createWalletRoutes(
                 })
             }
         )
+        /**
+         * GET /api/address/:walletAddress/history
+         *
+         * Returns paginated wallet analysis history from the database.
+         * Does not trigger a new analysis — returns previously computed results.
+         *
+         * Query parameters:
+         * - limit: Number of records to return (default: 10, max: 50)
+         * - offset: Number of records to skip (default: 0)
+         */
+        .get(
+            "/address/:walletAddress/history",
+            async ({ params, query, set }) => {
+                try {
+                    const { walletAddress } = params;
+                    const limit = Math.min(
+                        parseInt(query.limit || "10", 10),
+                        50
+                    );
+                    const offset = parseInt(query.offset || "0", 10);
+
+                    const analyses = await databaseService.getWalletAnalysisHistory(
+                        walletAddress,
+                        limit,
+                        offset
+                    );
+
+                    return {
+                        success: true,
+                        analyses,
+                        meta: {
+                            address: walletAddress,
+                            count: analyses.length,
+                            limit,
+                            offset,
+                            retrievedAt: new Date().toISOString(),
+                        },
+                    };
+                } catch (error) {
+                    set.status = 400;
+                    return {
+                        success: false,
+                        error: error instanceof Error ? error.message : "Unknown error",
+                        meta: { retrievedAt: new Date().toISOString() },
+                    };
+                }
+            },
+            {
+                params: t.Object({
+                    walletAddress: t.String({
+                        description: "Ethereum wallet address (0x...)",
+                        pattern: "^0x[a-fA-F0-9]{40}$",
+                    }),
+                }),
+                query: t.Object({
+                    limit: t.Optional(
+                        t.String({
+                            description: "Number of records (default: 10, max: 50)",
+                            pattern: "^[0-9]+$",
+                        })
+                    ),
+                    offset: t.Optional(
+                        t.String({
+                            description: "Records to skip (default: 0)",
+                            pattern: "^[0-9]+$",
+                        })
+                    ),
+                }),
+            }
+        )
+        /**
+         * GET /api/address/:walletAddress/token/:tokenAddress/history
+         *
+         * Returns paginated token analysis history for a wallet + token pair.
+         * Does not trigger a new analysis — returns previously computed results.
+         *
+         * Query parameters:
+         * - limit: Number of records to return (default: 10, max: 50)
+         * - offset: Number of records to skip (default: 0)
+         */
+        .get(
+            "/address/:walletAddress/token/:tokenAddress/history",
+            async ({ params, query, set }) => {
+                try {
+                    const { walletAddress, tokenAddress } = params;
+                    const limit = Math.min(
+                        parseInt(query.limit || "10", 10),
+                        50
+                    );
+                    const offset = parseInt(query.offset || "0", 10);
+
+                    const analyses = await databaseService.getTokenAnalysisHistory(
+                        walletAddress,
+                        tokenAddress,
+                        limit,
+                        offset
+                    );
+
+                    return {
+                        success: true,
+                        analyses,
+                        meta: {
+                            address: walletAddress,
+                            tokenAddress,
+                            count: analyses.length,
+                            limit,
+                            offset,
+                            retrievedAt: new Date().toISOString(),
+                        },
+                    };
+                } catch (error) {
+                    set.status = 400;
+                    return {
+                        success: false,
+                        error: error instanceof Error ? error.message : "Unknown error",
+                        meta: { retrievedAt: new Date().toISOString() },
+                    };
+                }
+            },
+            {
+                params: t.Object({
+                    walletAddress: t.String({
+                        description: "Ethereum wallet address (0x...)",
+                        pattern: "^0x[a-fA-F0-9]{40}$",
+                    }),
+                    tokenAddress: t.String({
+                        description: "ERC20 token contract address (0x...)",
+                        pattern: "^0x[a-fA-F0-9]{40}$",
+                    }),
+                }),
+                query: t.Object({
+                    limit: t.Optional(
+                        t.String({
+                            description: "Number of records (default: 10, max: 50)",
+                            pattern: "^[0-9]+$",
+                        })
+                    ),
+                    offset: t.Optional(
+                        t.String({
+                            description: "Records to skip (default: 0)",
+                            pattern: "^[0-9]+$",
+                        })
+                    ),
+                }),
+            }
+        )
 }
