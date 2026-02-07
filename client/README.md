@@ -1,3 +1,3 @@
-# WXT + React
+# React + TypeScript + Vite + shadcn/ui
 
-This template should help get you started developing with React in WXT.
+This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
