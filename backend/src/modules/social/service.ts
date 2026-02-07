@@ -1,5 +1,5 @@
 import type { TokenBehaviorInsight } from "../wallet/types";
-import type { SocialPostsResponse } from "./types";
+import type { SocialPostsResult } from "./types";
 import { llmSocialPostsOutputSchema } from "./schemas";
 
 const DEFAULT_DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
@@ -134,7 +134,7 @@ export async function generateSocialPosts(
   tokenAnalysis: TokenBehaviorInsight,
   tokenAddress: string,
   tokenSymbol?: string
-): Promise<SocialPostsResponse> {
+): Promise<SocialPostsResult> {
   const apiKey = Bun.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     throw new Error("Missing DEEPSEEK_API_KEY environment variable");
