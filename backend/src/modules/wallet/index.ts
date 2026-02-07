@@ -3,8 +3,9 @@ import { walletService } from "./service";
 import type { WalletServiceContract } from "./service";
 import { analyzeWalletBehavior } from "./behavior-analyzer";
 import { analyzeTokenBehavior } from "./token-behavior-analyzer";
-import { formatEther } from "ethers";
+import { formatEther, formatUnits } from "ethers";
 import { marketService } from "../market/service";
+import { getEthPriceUsd } from "../market/coingecko.adapter";
 import { databaseService } from "../database";
 
 type HttpMappedError = {
@@ -199,9 +200,12 @@ export function createWalletRoutes(
                     const normalizedDays = Number.isNaN(parsedDays) ? 30 : parsedDays;
                     const days = Math.min(Math.max(normalizedDays, 1), 365);
 
-                    const [walletInfo, marketSnapshot] = await Promise.all([
+                    const [walletInfo, marketSnapshot, ethPriceUsd, rawTokenBalance] = await Promise.all([
                         service.getWalletTokenActivity(walletAddress, tokenAddress, limit),
-                        marketService.buildTokenMarketSnapshot(tokenAddress, days)
+                        marketService.buildTokenMarketSnapshot(tokenAddress, days),
+                        getEthPriceUsd(),
+                        service.getTokenBalance(walletAddress, tokenAddress)
+                            .catch(() => null)
                     ]);
 
                     let tokenBehavior = null;
@@ -222,6 +226,30 @@ export function createWalletRoutes(
 
                     const ethBalance = formatEther(walletInfo.balance);
                     const modelUsed = Bun.env.DEEPSEEK_MODEL || "deepseek-chat";
+
+                    // Derive token balance in human-readable units
+                    const tokenDecimals = walletInfo.erc20Transfers[0]?.tokenDecimal ?? "18";
+                    const tokenBalance = rawTokenBalance
+                        ? formatUnits(rawTokenBalance, parseInt(tokenDecimals, 10))
+                        : null;
+
+                    // Extract token price and market info from snapshot
+                    const tokenPriceUsd = marketSnapshot.marketData.currentPriceUsd;
+                    const tokenSymbol = marketSnapshot.token.symbol;
+                    const tokenName = marketSnapshot.token.name;
+
+                    // Compute USD equivalents
+                    const ethBalanceNum = parseFloat(ethBalance);
+                    const ethBalanceUsd = ethPriceUsd !== null && !Number.isNaN(ethBalanceNum)
+                        ? ethBalanceNum * ethPriceUsd
+                        : null;
+
+                    const tokenBalanceNum = tokenBalance !== null
+                        ? parseFloat(tokenBalance)
+                        : null;
+                    const tokenBalanceUsd = tokenBalanceNum !== null && tokenPriceUsd !== null
+                        ? tokenBalanceNum * tokenPriceUsd
+                        : null;
 
                     // Persist token analysis to database (fire-and-forget)
                     if (tokenBehavior) {
@@ -247,6 +275,12 @@ export function createWalletRoutes(
                             address: walletAddress,
                             tokenAddress,
                             balance: ethBalance,
+                            ethBalanceUsd,
+                            tokenBalance,
+                            tokenBalanceUsd,
+                            tokenPriceUsd,
+                            tokenSymbol,
+                            tokenName,
                             transactionLimit: limit,
                             marketDays: days,
                             retrievedAt: new Date().toISOString(),

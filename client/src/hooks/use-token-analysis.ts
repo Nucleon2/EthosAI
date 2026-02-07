@@ -17,6 +17,7 @@ export function useTokenAnalysis() {
     tokenAddress,
     tokenAnalysisStatus,
     tokenAnalysis,
+    tokenAnalysisMeta,
     tokenError,
     setTokenAddress,
     setTokenAnalysis,
@@ -48,7 +49,7 @@ export function useTokenAnalysis() {
     },
     onSuccess: (response, address) => {
       if (response.success && response.tokenAnalysis) {
-        setTokenAnalysis("success", response.tokenAnalysis);
+        setTokenAnalysis("success", response.tokenAnalysis, null, response.meta);
       } else {
         setTokenAnalysis(
           "error",
@@ -92,6 +93,7 @@ export function useTokenAnalysis() {
     tokenAddress,
     tokenAnalysisStatus,
     tokenAnalysis,
+    tokenAnalysisMeta,
     tokenError,
     isAnalyzed,
     isLoading,

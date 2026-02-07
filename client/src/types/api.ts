@@ -122,6 +122,12 @@ export interface TokenAnalysisMeta {
   address: string;
   tokenAddress: string;
   balance?: string;
+  ethBalanceUsd?: number | null;
+  tokenBalance?: string | null;
+  tokenBalanceUsd?: number | null;
+  tokenPriceUsd?: number | null;
+  tokenSymbol?: string;
+  tokenName?: string;
   transactionLimit: number;
   marketDays: number;
   retrievedAt: string;

@@ -8,6 +8,7 @@ import { persist } from "zustand/middleware";
 import type {
   WalletBehaviorInsight,
   TokenAnalysis,
+  TokenAnalysisMeta,
 } from "@/types/api";
 
 /** Possible analysis states for async operations. */
@@ -29,6 +30,8 @@ interface WalletState {
   tokenAnalysisStatus: AnalysisStatus;
   /** Token analysis data returned by the backend. */
   tokenAnalysis: TokenAnalysis | null;
+  /** Metadata returned alongside the token analysis (balances, prices). */
+  tokenAnalysisMeta: TokenAnalysisMeta | null;
   /** Error message from a failed token analysis. */
   tokenError: string | null;
 }
@@ -49,7 +52,8 @@ interface WalletActions {
   setTokenAnalysis: (
     status: AnalysisStatus,
     analysis?: TokenAnalysis | null,
-    error?: string | null
+    error?: string | null,
+    meta?: TokenAnalysisMeta | null
   ) => void;
 
   /** Clears token analysis state (address, data, status). */
@@ -66,6 +70,7 @@ const initialState: WalletState = {
   tokenAddress: null,
   tokenAnalysisStatus: "idle",
   tokenAnalysis: null,
+  tokenAnalysisMeta: null,
   tokenError: null,
 };
 
@@ -83,6 +88,7 @@ export const useWalletStore = create<WalletState & WalletActions>()(
           tokenAddress: null,
           tokenAnalysisStatus: "idle",
           tokenAnalysis: null,
+          tokenAnalysisMeta: null,
           tokenError: null,
         }),
 
@@ -98,13 +104,15 @@ export const useWalletStore = create<WalletState & WalletActions>()(
           tokenAddress: address,
           tokenAnalysisStatus: "idle",
           tokenAnalysis: null,
+          tokenAnalysisMeta: null,
           tokenError: null,
         }),
 
-      setTokenAnalysis: (status, analysis, error) =>
+      setTokenAnalysis: (status, analysis, error, meta) =>
         set({
           tokenAnalysisStatus: status,
           tokenAnalysis: analysis ?? null,
+          tokenAnalysisMeta: meta ?? null,
           tokenError: error ?? null,
         }),
 
@@ -113,6 +121,7 @@ export const useWalletStore = create<WalletState & WalletActions>()(
           tokenAddress: null,
           tokenAnalysisStatus: "idle",
           tokenAnalysis: null,
+          tokenAnalysisMeta: null,
           tokenError: null,
         }),
 

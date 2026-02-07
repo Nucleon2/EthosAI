@@ -84,7 +84,7 @@ function SessionItem({
     <BlurFade delay={index * 0.03} duration={0.3}>
       <div
         className={cn(
-          "border border-border p-3 space-y-2.5",
+          "border border-border p-3 space-y-2.5 min-w-0",
           isActive && "border-primary/30 bg-primary/[0.02]"
         )}
       >
@@ -114,7 +114,7 @@ function SessionItem({
 
         {/* Session summary */}
         {session.sessionSummary && (
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
+          <p className="text-[11px] text-muted-foreground leading-relaxed break-words">
             {session.sessionSummary}
           </p>
         )}
@@ -126,7 +126,7 @@ function SessionItem({
               <Badge
                 key={i}
                 variant="outline"
-                className="text-[10px] font-normal"
+                className="text-[10px] font-normal h-auto whitespace-normal text-left"
               >
                 {topic}
               </Badge>
@@ -143,7 +143,7 @@ function SessionItem({
             {session.nudgesDelivered.slice(0, 3).map((nudge, i) => (
               <p
                 key={i}
-                className="text-[11px] text-muted-foreground pl-2 border-l-2 border-primary/20"
+                className="text-[11px] text-muted-foreground pl-2 border-l-2 border-primary/20 break-words"
               >
                 {nudge}
               </p>
